@@ -7,7 +7,7 @@
 // fogged view the server sends) -> wait for the seals, the openings and the settlement -> read the
 // Warden NFT and the EMBER supply -> transfer the Warden to a second account: its purse goes along.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner, actions, teraToGas, type KeyPairString } from 'near-api-js';
@@ -23,9 +23,21 @@ const step = (s: string): void => console.log(`\n▶ ${s}`);
 const ok = (s: string): void => console.log(`  ✓ ${s}`);
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+const credFile = (a: string): string => join(homedir(), '.near-credentials', 'testnet', `${a}.json`);
 function faucetAccount(id: string): KeyPairString {
   execFileSync('near', ['account', 'create-account', 'sponsor-by-faucet-service', id, 'autogenerate-new-keypair', 'save-to-legacy-keychain', 'network-config', 'testnet', 'create'], { stdio: 'ignore' });
-  return JSON.parse(readFileSync(join(homedir(), '.near-credentials', 'testnet', `${id}.json`), 'utf8')).private_key as KeyPairString;
+  return JSON.parse(readFileSync(credFile(id), 'utf8')).private_key as KeyPairString;
+}
+/** When the faucet is rate-limited: a sub-account of a testnet account we hold (default the referee), funded with 0.3 NEAR. */
+async function fundedSubAccount(label: string): Promise<{ id: string; key: KeyPairString }> {
+  const funder = process.env.E2E_FUNDER ?? process.env.REFEREE_ID ?? 'emberfall-ref.testnet';
+  const fk = JSON.parse(readFileSync(credFile(funder), 'utf8')).private_key as KeyPairString;
+  const kp = KeyPair.fromRandom('ed25519');
+  const sub = `${label}.${funder}`;
+  const f = new Account(funder, new JsonRpcProvider({ url: 'https://rpc.testnet.fastnear.com' }), KeyPairSigner.fromSecretKey(fk));
+  await f.signAndSendTransaction({ receiverId: sub, actions: [actions.createAccount(), actions.transfer(300_000_000_000_000_000_000_000n), actions.addFullAccessKey(kp.getPublicKey())], waitUntil: 'EXECUTED_OPTIMISTIC' });
+  writeFileSync(credFile(sub), JSON.stringify({ account_id: sub, public_key: kp.getPublicKey().toString(), private_key: kp.toString() }), { mode: 0o600 });
+  return { id: sub, key: kp.toString() as KeyPairString };
 }
 
 /** sha256 of the NEP-413 payload a wallet signs (what better-near-auth verifies). */
@@ -35,9 +47,13 @@ function nep413Hash(message: string, nonce: Uint8Array, recipient: string): Uint
   return sha256(Buffer.concat([u32(2 ** 31 + 413), str(message), nonce, str(recipient), new Uint8Array([0])]));
 }
 
-const id = `emberfall-e2e-${stamp}.testnet`;
+let id = `emberfall-e2e-${stamp}.testnet`;
 step(`create ${id} from the testnet faucet`);
-const key = faucetAccount(id);
+let key: KeyPairString;
+try { key = faucetAccount(id); } catch {
+  ({ id, key } = await fundedSubAccount(`e2e-${stamp}`));
+  console.log(`  (the faucet is rate-limited: using ${id}, funded by its parent account)`);
+}
 const provider = new JsonRpcProvider({ url: 'https://rpc.testnet.fastnear.com' });
 const me = new Account(id, provider, KeyPairSigner.fromSecretKey(key));
 await sleep(3000);
