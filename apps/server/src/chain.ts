@@ -21,7 +21,7 @@ function account(id: string): Account {
 export interface CallResult<T> { value: T; tx: string }
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-const transient = (e: unknown): boolean => /fetch failed|ECONNRESET|ETIMEDOUT|timeout|503|502|429|InvalidNonce/i.test(String((e as Error)?.message ?? e));
+const transient = (e: unknown): boolean => /fetch failed|ECONNRESET|ETIMEDOUT|timeout|503|502|429|InvalidNonce|Invalid nonce|Exceeded \d+ providers/i.test(String((e as Error)?.message ?? e));
 
 /** Calls a method as `signer`. Returns the decoded return value and the transaction hash. */
 export function call<T = unknown>(signer: string, method: string, args: object, gasTera = 60, depositYocto = 0n): Promise<CallResult<T>> {
@@ -40,8 +40,10 @@ export function call<T = unknown>(signer: string, method: string, args: object, 
   const guarded = async (): Promise<CallResult<T>> => {
     for (let attempt = 0; ; attempt++) {
       try { return await once(); } catch (e) {
-        if (attempt >= 3 || !transient(e)) throw e;
-        await sleep(700 * (attempt + 1));
+        if (attempt >= 4 || !transient(e)) throw e;
+        // a stale nonce (another process used this key) can surface as any of these: start afresh
+        accounts.delete(signer);
+        await sleep(900 * (attempt + 1));
       }
     }
   };
