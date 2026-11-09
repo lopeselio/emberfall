@@ -155,8 +155,10 @@ function Title({ cfg, account, play, create, join }: { cfg: ServerConfig | null;
 
   return (
     <main className="title">
+      <div className="sparks" aria-hidden="true">{Array.from({ length: 22 }, (_, k) => <i key={k} style={{ left: `${(k * 47) % 100}%`, animationDuration: `${7 + (k % 5) * 2}s`, animationDelay: `${(k * 0.73) % 8}s` }} />)}</div>
       <section className="hero">
         <h1>EMBERFALL</h1>
+        <div className="tag">a torchlit battle arena on NEAR</div>
         <p>A night battle in ruined voxel halls. You see only what your torch lights; so does everyone else. Gather embers, fight, and stay inside the light while <b>the dark closes in</b>. Every three seconds the match is <b>sealed onchain</b>, and anyone can replay it afterwards.</p>
         <label className="name">Your name <input value={name} maxLength={20} placeholder="Warden" onChange={(e) => setNameState(e.target.value)} onBlur={keep} /></label>
         <div className="row mid">
