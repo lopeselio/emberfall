@@ -28,9 +28,12 @@ function faucetAccount(id: string): KeyPairString {
   execFileSync('near', ['account', 'create-account', 'sponsor-by-faucet-service', id, 'autogenerate-new-keypair', 'save-to-legacy-keychain', 'network-config', 'testnet', 'create'], { stdio: 'ignore' });
   return JSON.parse(readFileSync(credFile(id), 'utf8')).private_key as KeyPairString;
 }
-/** When the faucet is rate-limited: a sub-account of a testnet account we hold (default the referee), funded with 0.3 NEAR. */
+/**
+ * When the faucet is rate-limited: a sub-account of a testnet account we hold, funded with 0.3 NEAR.
+ * Default: the contract's owner account, which the running server doesn't sign with (so no nonce clash).
+ */
 async function fundedSubAccount(label: string): Promise<{ id: string; key: KeyPairString }> {
-  const funder = process.env.E2E_FUNDER ?? process.env.REFEREE_ID ?? 'emberfall-ref.testnet';
+  const funder = process.env.E2E_FUNDER ?? CONTRACT;
   const fk = JSON.parse(readFileSync(credFile(funder), 'utf8')).private_key as KeyPairString;
   const kp = KeyPair.fromRandom('ed25519');
   const sub = `${label}.${funder}`;
