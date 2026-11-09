@@ -13,7 +13,7 @@ interface Temper { fightHp: number; swing: number; dash: number; margin: number;
 const TEMPER: Record<Skill, Temper> = {
   easy: { fightHp: 4, swing: 40, dash: 2, margin: 160, flee: 420, idle: 12, engage: 300 },
   normal: { fightHp: 3, swing: 70, dash: 8, margin: 260, flee: 320, idle: 3, engage: 450 },
-  hard: { fightHp: 2, swing: 100, dash: 18, margin: 380, flee: 220, idle: 0, engage: 900 },
+  hard: { fightHp: 2, swing: 80, dash: 16, margin: 380, flee: 220, idle: 0, engage: 650 },
 };
 
 const sign = (n: number): number => (n > 0 ? 1 : n < 0 ? -1 : 0);
@@ -81,7 +81,9 @@ export function decide(v: View, a: Arena, skill: Skill, brain: Brain): Input {
     const dist2 = d2(foe.x, foe.z, me.x, me.z);
     // hard bots take even fights; the others only fights they're ahead in (or ones worth the embers)
     const fight = me.hp >= t.fightHp && (skill === 'hard' ? me.hp + 1 >= foe.hp : me.hp > foe.hp || (me.hp === foe.hp && foe.embers > me.embers));
-    if (fight && dist2 <= t.engage * t.engage) {
+    // early on, while the light is wide, they'd rather gather than fight
+    const engage = v.tick < DARK_START ? Math.trunc(t.engage / 2) : t.engage;
+    if (fight && dist2 <= engage * engage) {
       const [mx, mz] = dir8(foe.x - me.x, foe.z - me.z);
       const inReach = dist2 <= (SWING_RANGE - 25) ** 2;
       const swing = inReach && me.swingCd === 0 && chance(r, t.swing);
@@ -106,7 +108,7 @@ export function decide(v: View, a: Arena, skill: Skill, brain: Brain): Input {
 
   // 4. wander to a goal inside the safe circle (stalkers drift towards the centre, where the light gathers)
   if (d2(brain.gx, brain.gz, me.x, me.z) < 120 * 120 || d2(brain.gx, brain.gz, CENTER, CENTER) > safe * safe || chance(r, 1)) {
-    newGoal(a, r, Math.trunc((safe * (skill === 'hard' ? 6 : 9)) / 10), brain);
+    newGoal(a, r, Math.trunc((safe * (skill === 'hard' ? 7 : 9)) / 10), brain);
   }
   const [mx, mz] = dir8(brain.gx - me.x, brain.gz - me.z);
   return out(mx, mz);
