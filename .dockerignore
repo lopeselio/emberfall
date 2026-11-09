@@ -1,0 +1,7 @@
+node_modules
+**/node_modules
+**/dist
+contracts/emberfall/target
+data
+.env
+.git
