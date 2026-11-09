@@ -4,7 +4,7 @@ import {
   CHUNK, MAX_SEATS, MAX_TICKS, Recorder, TICK_HZ, createState, eventsFor, step, viewFor, type Input, type SimEvent, type State,
 } from '@emberfall/rules';
 import { AGENTS, taunt, type AgentDef } from './agents.ts';
-import { explorerTx } from './config.ts';
+import { config, explorerTx } from './config.ts';
 import { ChainMatch, planSeats, type SeatPlan } from './match.ts';
 
 // Rooms. The server runs the match at 20 ticks a second and sends each player only its own view:
@@ -209,7 +209,7 @@ export class Room {
     const msg = (): unknown => ({
       t: 'results', matchId: match.id, winner: s.winner, endTick: s.tick, ranked: match.rec.ranked, fee: match.rec.fee,
       seats: s.wardens.map((w, i) => ({ name: w.name, alive: w.alive, hp: w.hp, embers: w.embers, kills: w.kills, fellAt: w.fellAt, warden: match.rec.seats[i].warden, kind: match.rec.seats[i].kind })),
-      expected: match.rec.expected, settled: match.rec.settled, error: match.rec.error ?? null,
+      expected: match.rec.expected, chain: config.chainEnabled, settled: match.rec.settled, error: match.rec.error ?? null,
       txs: match.rec.txs.map((x) => ({ ...x, url: explorerTx(x.hash) })),
     });
     this.results = msg();

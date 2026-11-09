@@ -25,7 +25,7 @@ export interface RoomMsg { t: 'room'; code: string; phase: string; seats: RoomSe
 export interface StartMsg { t: 'start'; you: number; matchId: string; startsAt: number; seats: { name: string; kind: string; warden: string | null; flame: number }[]; ranked: boolean; fee: number; seedHash: string; tiles: Tile[]; maxTicks: number }
 export interface SnapMsg { t: 'snap'; v: View; ev: SimEvent[] }
 export interface ResultSeat { name: string; alive: boolean; hp: number; embers: number; kills: number; fellAt: number; warden: string | null; kind: string }
-export interface ResultsMsg { t: 'results'; matchId: string; winner: number | null; endTick: number; ranked: boolean; fee: number; seats: ResultSeat[]; expected: Settlement; settled: boolean; error: string | null; txs: { what: string; hash: string; url: string }[] }
+export interface ResultsMsg { t: 'results'; matchId: string; winner: number | null; endTick: number; ranked: boolean; fee: number; seats: ResultSeat[]; expected: Settlement; chain: boolean; settled: boolean; error: string | null; txs: { what: string; hash: string; url: string }[] }
 export interface LineMsg { t: 'line'; who: string; text: string; signed: boolean }
 export type ServerMsg = RoomMsg | StartMsg | SnapMsg | ResultsMsg | LineMsg | { t: 'error'; msg: string } | { t: 'kicked' } | { t: 'hello'; account: string | null };
 
