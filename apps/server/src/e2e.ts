@@ -127,8 +127,8 @@ const results = await new Promise<{ winner: number | null; seats: { name: string
       const v = m.v as View;
       if (!v.me.alive) return;
       const d = decide(v, arena, 'normal', brain);
-      const key = `${d.mx},${d.mz},${d.swing ? 1 : 0},${d.dash ? 1 : 0}`;
-      if (key !== last || d.swing || d.dash) { send({ t: 'in', mx: d.mx ?? 0, mz: d.mz ?? 0, swing: !!d.swing, dash: !!d.dash }); last = key; }
+      const key = `${d.mx},${d.mz},${d.ax},${d.az},${d.swing ? 1 : 0},${d.dash ? 1 : 0}`;
+      if (key !== last || d.swing || d.dash) { send({ t: 'in', mx: d.mx ?? 0, mz: d.mz ?? 0, ax: d.ax ?? 0, az: d.az ?? 0, swing: !!d.swing, dash: !!d.dash }); last = key; }
     }
     if (m.t === 'results') { clearTimeout(timer); resolve(m as never); }
   });
