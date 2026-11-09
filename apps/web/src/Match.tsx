@@ -211,7 +211,7 @@ function Results({ r, you, again, leave, account }: { r: ResultsMsg; you: number
       <p className="small">{r.settled ? <b className="mint">✓ Opened and settled onchain: the contract rebuilt every seal.</b> : r.error ? <span className="err">Chain: {r.error}</span> : <span className="dim">Opening the sealed log and settling onchain…</span>}</p>
       {r.txs.length > 0 && <details><summary className="small">{r.txs.length} transactions</summary><ul className="txs">{r.txs.map((t) => <li key={t.hash}><a href={t.url} target="_blank" rel="noreferrer">{t.what}</a></li>)}</ul></details>}
       <p className="small dim">Proof: <a href={`/api/match/${r.matchId}`} target="_blank" rel="noreferrer">opened log (JSON)</a> · replay it: <code>pnpm verify {r.matchId}</code></p>
-      <div className="row center"><button onClick={again}>Play again</button><button className="ghost" onClick={leave}>Back to the title</button></div>
+      <div className="row mid"><button onClick={again}>Play again</button><button className="ghost" onClick={leave}>Back to the title</button></div>
     </div>
   );
 }

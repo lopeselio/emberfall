@@ -23,7 +23,7 @@ code { font: 12px ui-monospace, monospace; background: rgba(255, 255, 255, .07);
 .burn { color: var(--burn); }
 .grow { flex: 1; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
-.row.center { justify-content: center; }
+.row.mid { justify-content: center; }
 .row.top { align-items: flex-start; flex-wrap: nowrap; }
 
 .world { position: fixed; inset: 0; }

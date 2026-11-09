@@ -159,11 +159,11 @@ function Title({ cfg, account, play, create, join }: { cfg: ServerConfig | null;
         <h1>EMBERFALL</h1>
         <p>A night battle in ruined voxel halls. You see only what your torch lights; so does everyone else. Gather embers, fight, and stay inside the light while <b>the dark closes in</b>. Every three seconds the match is <b>sealed onchain</b>, and anyone can replay it afterwards.</p>
         <label className="name">Your name <input value={name} maxLength={20} placeholder="Warden" onChange={(e) => setNameState(e.target.value)} onBlur={keep} /></label>
-        <div className="row center">
+        <div className="row mid">
           <button className="big" onClick={() => { keep(); sfx('click'); play(bots); }}>Fight the Ashen Wardens</button>
           <label className="dim small">rivals <select value={bots} onChange={(e) => setBots(Number(e.target.value))}>{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
         </div>
-        <div className="row center">
+        <div className="row mid">
           <button className="ghost" onClick={() => { keep(); create(); }}>Create a room</button>
           <input className="code" value={code} maxLength={4} placeholder="CODE" onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} />
           <button className="ghost" disabled={code.length !== 4} onClick={() => { keep(); join(code); }}>Join</button>

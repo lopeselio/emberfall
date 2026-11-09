@@ -22,7 +22,7 @@ export function Tutorial({ done }: { done: () => void }) {
         <h2>{s.title}</h2>
         <p>{s.body}</p>
         <div className="dots">{STEPS.map((_, i) => <i key={i} className={i === k ? 'on' : ''} />)}</div>
-        <div className="row center">
+        <div className="row mid">
           {k > 0 && <button className="ghost" onClick={() => setK(k - 1)}>Back</button>}
           {k < STEPS.length - 1 ? <button onClick={() => setK(k + 1)}>Next</button> : <button onClick={done}>Light my torch</button>}
           {k < STEPS.length - 1 && <button className="ghost small" onClick={done}>Skip</button>}

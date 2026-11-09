@@ -218,8 +218,8 @@ export class World {
     this.scene.background = new THREE.Color(C.sky);
     this.scene.fog = new THREE.FogExp2(C.sky, 0.022);
 
-    this.scene.add(new THREE.HemisphereLight(0x46507e, 0x0a0812, 0.9));
-    const moon = new THREE.DirectionalLight(0x9fb0ff, 0.75);
+    this.scene.add(new THREE.HemisphereLight(0x5a66a0, 0x0c0a16, 1.6));
+    const moon = new THREE.DirectionalLight(0xa8b8ff, 1.3);
     moon.position.set(-14, 26, -18);
     this.scene.add(moon);
     // a fixed pool of torch lights, so shaders never recompile when torches come and go
