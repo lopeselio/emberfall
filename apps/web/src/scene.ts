@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BRAZIER, CENTER, PILLAR, SIZE, TILE, TREE, WALL, VIEW, makeArena, type SimEvent, type Tile, type View, type WardenView } from '@emberfall/rules';
+import { BRAZIER, CENTER, DIAG, PILLAR, SIZE, SPEED, TICK_HZ, TILE, TREE, WALL, VIEW, makeArena, type SimEvent, type Tile, type View, type WardenView } from '@emberfall/rules';
 
 // The arena at night, built from voxels. Moonlight shows the ruins dimly; your torch lights a warm
 // circle and a world-space fog-of-war term greys out everything beyond it. Outside the closing ring
@@ -29,8 +29,7 @@ const fow = {
   uCenter: { value: new THREE.Vector2(CENTER * U, CENTER * U) },
 };
 
-function fowMaterial(): THREE.MeshLambertMaterial {
-  const m = new THREE.MeshLambertMaterial({ color: 0xffffff });
+function fowMaterial<M extends THREE.Material = THREE.MeshLambertMaterial>(m: M = new THREE.MeshLambertMaterial({ color: 0xffffff }) as unknown as M): M {
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, fow);
     sh.vertexShader = `varying vec3 vFowPos;\n${sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
@@ -195,6 +194,16 @@ export class World {
   private ring: THREE.Mesh;
   private ringMat: THREE.ShaderMaterial;
   private arcs: { mesh: THREE.Mesh; t: number }[] = [];
+  private numbers: { s: THREE.Sprite; t: number; v: THREE.Vector3 }[] = [];
+  private aimMark: THREE.Mesh;
+  private hitStop = 0;
+  private dust = 0;
+  /** your own input, for prediction: the server is authoritative, this only hides the round trip */
+  private input = { mx: 0, mz: 0, dash: 0 };
+  private lastSnap = 0;
+  private serverMe = new THREE.Vector3();
+  /** -1..1 per axis: where you're aiming (for the marker and the camera lead) */
+  aim = { x: 0, z: 1 };
   private camPos = new THREE.Vector3(20, 22, 40);
   private camLook = new THREE.Vector3(20, 0, 20);
   private shake = 0;
@@ -244,19 +253,32 @@ export class World {
 
     this.ringMat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
-      uniforms: { uTime: { value: 0 } },
+      uniforms: { uTime: { value: 0 }, uWarn: { value: 0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: `varying vec2 vUv; uniform float uTime;
+      fragmentShader: `varying vec2 vUv; uniform float uTime; uniform float uWarn;
         float n(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
         void main(){
           vec2 q = vec2(floor(vUv.x * 160.0), floor(vUv.y * 10.0 - uTime * 1.6));
           float a = pow(1.0 - vUv.y, 1.3) * (0.45 + 0.55 * n(q));
-          gl_FragColor = vec4(mix(vec3(0.05,0.02,0.09), vec3(0.32,0.12,0.5), n(q + 3.1) * (1.0 - vUv.y)), a * 0.85);
+          vec3 c = mix(vec3(0.05,0.02,0.09), vec3(0.32,0.12,0.5), n(q + 3.1) * (1.0 - vUv.y));
+          float pulse = uWarn * (0.5 + 0.5 * sin(uTime * 9.0));
+          c += vec3(0.55, 0.15, 0.85) * pulse * (1.0 - vUv.y);
+          gl_FragColor = vec4(c, min(1.0, a * (0.85 + pulse * 0.6)));
         }`,
     });
     this.ring = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 4.5, 128, 1, true), this.ringMat);
     this.ring.position.set(CENTER * U, 2.25, CENTER * U);
     this.scene.add(this.ring);
+    // a little wedge on the ground showing where your swing will land
+    const wedge = new THREE.Shape();
+    wedge.moveTo(-0.22, 0.7); wedge.lineTo(0, 1.05); wedge.lineTo(0.22, 0.7); wedge.lineTo(-0.22, 0.7);
+    this.aimMark = new THREE.Mesh(new THREE.ShapeGeometry(wedge), new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+    this.aimMark.rotation.x = -Math.PI / 2;
+    this.aimMark.visible = false;
+    const aimHolder = new THREE.Group();
+    aimHolder.add(this.aimMark);
+    aimHolder.name = 'aim';
+    this.scene.add(aimHolder);
 
     this.buildSky();
     this.setTiles(makeArena('emberfall-title').tiles);
@@ -377,7 +399,7 @@ export class World {
     this.scene.add(mesh);
     this.terrain.push(mesh);
     // glowing coals in the braziers
-    const coals = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.12, 0.5), new THREE.MeshBasicMaterial({ color: C.coal, toneMapped: false }), this.brazierLights.length);
+    const coals = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.12, 0.5), fowMaterial(new THREE.MeshBasicMaterial({ color: C.coal, toneMapped: false })), this.brazierLights.length);
     this.brazierLights.forEach((b, k) => { this.m4.makeTranslation(b.x, 0.74, b.z); coals.setMatrixAt(k, this.m4); });
     this.scene.add(coals);
     this.terrain.push(coals);
@@ -420,6 +442,7 @@ export class World {
     sh.from.copy(sh.body.g.position);
     sh.to.copy(pos);
     sh.t = 0;
+    if (w.seat === this.you) { this.serverMe.copy(pos); this.lastSnap = now; }
     sh.seen = now;
     sh.moving = sh.from.distanceTo(sh.to) > 0.01 ? 1 : 0;
     if (w.fx || w.fz) sh.yaw = Math.atan2(w.fx, w.fz);
@@ -446,18 +469,20 @@ export class World {
       const mine = e.w === this.you || ('by' in e && e.by === this.you);
       this.onEvent?.(e, mine);
       if (!at) continue;
-      if (e.t === 'pick') this.particles.burst(at, 0xffc060, 10, 2, 0.08, 0.6, 3);
+      if (e.t === 'pick') { this.particles.burst(at, 0xffc060, 12, 2.2, 0.08, 0.6, 3); if (e.w === this.you) this.number(at, '+1', '#ffc060'); }
       else if (e.t === 'hit') {
         this.particles.burst(at, 0xffffff, 6, 3, 0.07, 0.35, 6);
         this.particles.burst(at, 0xff4040, 8, 2.5, 0.1, 0.5, 7);
         const sh = this.shown.get(e.w);
         if (sh) sh.flash = 1;
-        if (e.w === this.you) this.shake = 0.35;
+        if (e.w === this.you) this.shake = 0.45;
+        if (mine) { this.hitStop = 0.075; if (e.by === this.you) this.shake = Math.max(this.shake, 0.18); }
+        this.number(at, '-1', e.w === this.you ? '#ff5a6a' : '#ffffff');
       } else if (e.t === 'fall') {
         this.particles.burst(at, 0x6a6470, 40, 2.2, 0.14, 1.4, 1.5);
         this.particles.burst(at, 0xff8a2a, 20, 3, 0.1, 0.9, 3);
         if (e.w === this.you) this.shake = 0.6;
-      } else if (e.t === 'burn') this.particles.burst(at, 0x8a3bd1, 12, 1.6, 0.1, 0.8, -1);
+      } else if (e.t === 'burn') { this.particles.burst(at, 0x8a3bd1, 12, 1.6, 0.1, 0.8, -1); this.number(at, '-1', '#c57bff'); if (e.w === this.you) this.shake = 0.3; }
       else if (e.t === 'dash') { for (let k = 0; k < 10; k++) this.particles.spawn(at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, -0.3, (Math.random() - 0.5) * 0.4)), new THREE.Vector3(0, 0.3, 0), 0xc8c0e0, 0.12, 0.5); }
       else if (e.t === 'swing') this.arc(e.w);
     }
@@ -476,26 +501,77 @@ export class World {
     this.arcs.push({ mesh: holder as unknown as THREE.Mesh, t: 0 });
   }
 
+  /** A floating number (damage, pickups) that rises and fades. */
+  private number(at: THREE.Vector3, text: string, color: string): void {
+    const cv = document.createElement('canvas');
+    cv.width = 96; cv.height = 64;
+    const x = cv.getContext('2d')!;
+    x.font = '700 44px "Pixelify Sans", monospace';
+    x.textAlign = 'center';
+    x.lineWidth = 6; x.strokeStyle = 'rgba(0,0,0,.7)'; x.strokeText(text, 48, 46);
+    x.fillStyle = color; x.fillText(text, 48, 46);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+    s.scale.set(0.9, 0.6, 1);
+    s.renderOrder = 12;
+    s.position.copy(at).add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 1.0, 0));
+    this.scene.add(s);
+    this.numbers.push({ s, t: 0, v: new THREE.Vector3(0, 1.6, 0) });
+  }
+
+  /** Your current input, for prediction (movement keys and dash). */
+  setInput(mx: number, mz: number, dash = false): void {
+    this.input.mx = mx; this.input.mz = mz;
+    if (dash) this.input.dash = 0.25;
+  }
+
+  /** Where a screen point lands on the ground (for mouse aim). */
+  groundAt(clientX: number, clientY: number): THREE.Vector3 | null {
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, this.camera);
+    const p = new THREE.Vector3();
+    return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.5), p) ? p : null;
+  }
+
   /** World position of the local Warden (for the minimap and sound). */
   mePos(): THREE.Vector3 | null { return this.shown.get(this.you)?.body.g.position ?? null; }
 
   // ---------- per frame ----------
 
   private frame(): void {
-    const dt = Math.min(0.05, this.clock.getDelta());
+    const realDt = Math.min(0.05, this.clock.getDelta());
+    // hit-stop: a few frames of near-frozen time when your blow lands (or you're struck)
+    const dt = this.hitStop > 0 ? realDt * 0.08 : realDt;
+    this.hitStop = Math.max(0, this.hitStop - realDt);
     const time = this.clock.elapsedTime;
+    this.input.dash = Math.max(0, this.input.dash - realDt);
     this.ringMat.uniforms.uTime.value = time;
 
     // move and animate the Wardens we can see
     for (const sh of this.shown.values()) {
       const b = sh.body;
-      sh.t = Math.min(1, sh.t + dt / 0.1);
-      b.g.position.lerpVectors(sh.from, sh.to, sh.t);
+      sh.t = Math.min(1, sh.t + dt / 0.05);
+      if (sh.seat === this.you && sh.alive && this.mode === 'match') {
+        // predict your own Warden from your keys for up to ~90 ms past the last view, then let the server win
+        const age = Math.min(0.09, (performance.now() - this.lastSnap) / 1000);
+        const sp = ((this.input.mx && this.input.mz ? DIAG : SPEED) * TICK_HZ * (this.input.dash > 0 ? 3 : 1)) / TILE;
+        const want = this.tmp.copy(this.serverMe).add(new THREE.Vector3(this.input.mx * sp * age, 0, this.input.mz * sp * age));
+        b.g.position.x += (want.x - b.g.position.x) * Math.min(1, dt * 22);
+        b.g.position.z += (want.z - b.g.position.z) * Math.min(1, dt * 22);
+      } else b.g.position.lerpVectors(sh.from, sh.to, sh.t);
       let dy = sh.yaw - b.g.rotation.y;
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
       b.g.rotation.y += dy * Math.min(1, dt * 16);
+      if (sh.seat === this.you) sh.moving = this.input.mx || this.input.mz ? 1 : sh.moving;
       sh.walk += dt * (sh.moving ? 14 : 0);
+      // footstep dust
+      if (sh.moving && sh.alive && Math.random() < dt * (sh.seat === this.you ? 10 : 5)) {
+        this.particles.spawn(this.tmp.copy(b.g.position).add(new THREE.Vector3((Math.random() - 0.5) * 0.3, 0.05, (Math.random() - 0.5) * 0.3)), new THREE.Vector3((Math.random() - 0.5) * 0.4, 0.4, (Math.random() - 0.5) * 0.4), 0x6b6478, 0.09, 0.45, 0.5);
+      }
       const sw = Math.sin(sh.walk) * 0.5 * sh.moving;
       b.legL.rotation.x = sw;
       b.legR.rotation.x = -sw;
@@ -592,6 +668,24 @@ export class World {
       if (a.t > 0.2) { this.scene.remove(a.mesh); mesh.geometry.dispose(); (mesh.material as THREE.Material).dispose(); }
     }
     this.arcs = this.arcs.filter((a) => a.t <= 0.2);
+    for (const n of this.numbers) {
+      n.t += realDt;
+      n.s.position.addScaledVector(n.v, realDt);
+      n.v.y = Math.max(0.2, n.v.y - realDt * 3);
+      (n.s.material as THREE.SpriteMaterial).opacity = Math.max(0, 1 - n.t / 0.9);
+      if (n.t > 0.9) { this.scene.remove(n.s); (n.s.material as THREE.SpriteMaterial).map?.dispose(); n.s.material.dispose(); }
+    }
+    this.numbers = this.numbers.filter((n) => n.t <= 0.9);
+    const aimG = this.aimMark.parent!;
+    this.aimMark.visible = this.mode === 'match' && !!me?.alive;
+    if (me) { aimG.position.set(me.body.g.position.x, 0.03, me.body.g.position.z); aimG.rotation.y = Math.atan2(-this.aim.x, -this.aim.z); }
+    (this.aimMark.material as THREE.MeshBasicMaterial).opacity = 0.35 + 0.25 * Math.sin(time * 6);
+    // the dark warns when it's near you
+    if (me && this.mode === 'match') {
+      const c = CENTER * U;
+      const dist = Math.hypot(me.body.g.position.x - c, me.body.g.position.z - c);
+      this.ringMat.uniforms.uWarn.value = Math.max(0, Math.min(1, 1 - (this.darkR - dist) / 2.5));
+    } else this.ringMat.uniforms.uWarn.value = 0;
     this.particles.update(dt);
 
     // camera: follow your Warden; orbit the ruins on the title screen
@@ -599,9 +693,11 @@ export class World {
       const p = me.body.g.position;
       fow.uTorch.value.set(p.x, p.z);
       fow.uR.value = VIEW * U;
-      const wantPos = this.tmp.set(p.x, p.y + 12.5, p.z + 9);
-      this.camPos.lerp(wantPos, Math.min(1, dt * 5));
-      this.camLook.lerp(new THREE.Vector3(p.x, 0, p.z - 0.6), Math.min(1, dt * 6));
+      // lead the camera a little towards where you're heading / aiming
+      const lx = (this.input.mx * 0.9 + this.aim.x * 0.6), lz = (this.input.mz * 0.9 + this.aim.z * 0.6);
+      const wantPos = this.tmp.set(p.x + lx, p.y + 12.5, p.z + 9 + lz);
+      this.camPos.lerp(wantPos, Math.min(1, realDt * 4));
+      this.camLook.lerp(new THREE.Vector3(p.x + lx, 0, p.z - 0.6 + lz), Math.min(1, realDt * 4.5));
     } else {
       const a = time * 0.05;
       this.camPos.set(20 + Math.cos(a) * 24, 17, 20 + Math.sin(a) * 24);
@@ -611,7 +707,7 @@ export class World {
     }
     this.camera.position.copy(this.camPos);
     if (this.shake > 0) {
-      this.shake = Math.max(0, this.shake - dt * 1.6);
+      this.shake = Math.max(0, this.shake - realDt * 1.6);
       this.camera.position.x += (Math.random() - 0.5) * this.shake * 0.5;
       this.camera.position.y += (Math.random() - 0.5) * this.shake * 0.5;
     }
