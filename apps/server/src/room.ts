@@ -129,6 +129,8 @@ export class Room {
     const w = m.want;
     if (inp.mx === -1 || inp.mx === 0 || inp.mx === 1) w.mx = inp.mx;
     if (inp.mz === -1 || inp.mz === 0 || inp.mz === 1) w.mz = inp.mz;
+    if (inp.ax === -1 || inp.ax === 0 || inp.ax === 1) w.ax = inp.ax;
+    if (inp.az === -1 || inp.az === 0 || inp.az === 1) w.az = inp.az;
     if (inp.swing) w.swing = true;
     if (inp.dash) w.dash = true;
   }
@@ -176,7 +178,7 @@ export class Room {
       const s = this.state!;
       const inputs = this.members.map((m) => {
         const w = m.want;
-        m.want = { mx: w.mx, mz: w.mz };
+        m.want = { mx: w.mx, mz: w.mz, ax: w.ax, az: w.az };
         m.sent = 0;
         return w;
       });
@@ -185,7 +187,8 @@ export class Room {
       this.recorder!.add(t, applied);
       this.evBuf.push(...events);
       if (s.tick % CHUNK === 0 || s.over) this.match!.addChunk(this.recorder!.close(s));
-      if (s.tick % 2 === 0 || s.over) this.snapshot();
+      // a view every tick (20 Hz): small, and it keeps your own Warden responsive
+      this.snapshot();
       if (s.over) { this.stop(); this.finish(); return; }
       next += 1000 / TICK_HZ;
       this.timer = setTimeout(tick, Math.max(0, next - Date.now()));

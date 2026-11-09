@@ -133,7 +133,7 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
         case 'kick': room?.kick(ws, Number(m.seat)); break;
         case 'ready': room?.setReady(ws, !!m.ready); break;
         case 'again': room?.again(ws); break;
-        case 'in': room?.input(ws, { mx: m.mx as number, mz: m.mz as number, swing: !!m.swing, dash: !!m.dash }); break;
+        case 'in': room?.input(ws, { mx: m.mx as number, mz: m.mz as number, ax: m.ax as number, az: m.az as number, swing: !!m.swing, dash: !!m.dash }); break;
         case 'leave': room?.leave(ws); room = null; break;
       }
     } catch (e) {
