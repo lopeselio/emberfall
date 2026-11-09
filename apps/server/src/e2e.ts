@@ -139,9 +139,14 @@ const tok = await view<{ metadata: { title: string; description: string } }>('nf
 ok(`${warden} purse ${profile.raw.purse} EMBER; NFT reads “${tok.metadata.title}”`);
 
 step('transfer the Warden NFT: its purse, loot and record go with it');
-const id2 = `emberfall-e2e2-${stamp}.testnet`;
-faucetAccount(id2);
-await sleep(2000);
+// a second account, made by the first (a sub-account, so no second faucet request is needed)
+const id2 = `buyer.${id}`;
+await me.signAndSendTransaction({
+  receiverId: id2,
+  actions: [actions.createAccount(), actions.transfer(50_000_000_000_000_000_000_000n), actions.addFullAccessKey(KeyPair.fromRandom('ed25519').getPublicKey())],
+  waitUntil: 'EXECUTED_OPTIMISTIC',
+});
+await sleep(1500);
 const out = (await me.signAndSendTransaction({ receiverId: CONTRACT, actions: [actions.functionCall('nft_transfer', { receiver_id: id2, token_id: warden }, teraToGas(50), 1n)], waitUntil: 'EXECUTED_OPTIMISTIC', throwOnFailure: false })) as unknown as { status: { Failure?: unknown } };
 if (out.status.Failure) throw new Error(`nft_transfer: ${JSON.stringify(out.status.Failure).slice(0, 200)}`);
 const moved = await view<{ owner_id: string; purse: number; record: { matches: number } }>('get_warden', { warden });
