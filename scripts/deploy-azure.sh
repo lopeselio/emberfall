@@ -48,6 +48,9 @@ KEYS=$(node -e '
 
 # the public URL players use: the wallet signs "Sign in to <host>" for it (Better Auth)
 FQDN_NOW=$(az containerapp show -g "$RG" -n "$APP" --query properties.configuration.ingress.fqdn -o tsv 2>/dev/null || true)
+# a bound custom domain (e.g. <game>.lopeselio.online) wins over the default Azure hostname
+CUSTOM_NOW=$(az containerapp hostname list -g "$RG" -n "$APP" --query "[0].name" -o tsv 2>/dev/null || true)
+PUBLIC_URL=${PUBLIC_URL:-${CUSTOM_NOW:+https://$CUSTOM_NOW}}
 PUBLIC_URL=${PUBLIC_URL:-${FQDN_NOW:+https://$FQDN_NOW}}
 
 az containerapp env show -g "$RG" -n "$ENV_NAME" -o none 2>/dev/null || az containerapp env create -g "$RG" -n "$ENV_NAME" -l "$LOC" -o none
