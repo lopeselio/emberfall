@@ -21,7 +21,7 @@ Deterministic and isomorphic. Integer maths only, no `Math.random`/`Date`/DOM; e
 - **Wardens:** 5 hearts. Move 18 units/tick (diagonals 13). **Swing:** hits every Warden within 1.6 tiles in front of you (half-plane of your facing) for 1 heart and knocks them back; 12-tick cooldown; 8 ticks of grace after being hit. **Dash:** 5 ticks at 3× speed, 50-tick cooldown.
 - **Embers:** 20 lie in the arena at the start; one more rises every 1.5 s inside the light until 2:40. Walk over one to carry it. A hit knocks one ember out of you; a fallen Warden spills all of theirs.
 - **Torch and fog:** you see 6.5 tiles around you, blocked by walls. Embers glow: each ember you carry makes you visible from 0.3 tiles further away (up to +3). The terrain is public (moonlight); Wardens and embers are not.
-- **The dark:** a circle of radius 21 tiles holds until 0:30, then shrinks steadily to 3.5 tiles at 2:30. Outside it you lose a heart every second.
+- **The dark:** a circle of radius 21 tiles holds until 0:20, then shrinks steadily to 3.5 tiles at 2:20. Outside it you lose a heart every second.
 - **End:** when at most one Warden is alive, or at 3:00. Winner: the only survivor; else the living Warden with most embers (then most hearts, then lowest seat); nobody if all fell.
 - **Bots** decide from their own fogged view (`viewFor`), never the full state. Their inputs are logged and sealed like a human's, and `pnpm verify` recomputes each one.
 
