@@ -88,7 +88,7 @@ export function createState(setup: Setup): State {
       name: seat.name, x: p.x, z: p.z, fx: sign(CENTER - p.x), fz: sign(CENTER - p.z), mx: 0, mz: 0,
       hp: HP, embers: 0, kills: 0, swingCd: 0, swingT: 0, dashCd: 0, dashT: 0, grace: 0, alive: true, fellAt: -1,
       bot: seat.bot ?? null, flame: Math.max(0, Math.min(3, seat.flame ?? 0)),
-      brain: { s: rngFrom(`emberfall|bot|${setup.seed}|${i}`).s, gx: CENTER, gz: CENTER },
+      brain: { r: rngFrom(`emberfall|bot|${setup.seed}|${i}`), gx: CENTER, gz: CENTER },
     };
   });
   const s: State = { seed: setup.seed, tick: 0, wardens, embers: [], nextEmber: 0, rng: rngFrom(`emberfall|sim|${setup.seed}`), over: false, winner: null, arena };

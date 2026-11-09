@@ -7,7 +7,7 @@ import type { Input, Skill, View } from './sim.ts';
 // fogged by its torch) plus the public map, and keeps a tiny memory (its own generator and a goal).
 // It never reads the full state, so it can't see through the dark; `pnpm verify` re-runs every decision.
 
-export interface Brain { s: number; gx: number; gz: number }
+export interface Brain { r: Rng; gx: number; gz: number }
 
 interface Temper { fightHp: number; swing: number; dash: number; margin: number; flee: number; idle: number; engage: number }
 const TEMPER: Record<Skill, Temper> = {
@@ -59,15 +59,13 @@ export function decide(v: View, a: Arena, skill: Skill, brain: Brain): Input {
   const me = v.me;
   if (!me.alive) return {};
   const t = TEMPER[skill];
-  const r: Rng = { s: brain.s };
+  const r = brain.r;
   const out = (mx: number, mz: number, extra: Input = {}): Input => {
-    brain.s = r.s;
     const [sx, sz] = steer(a, me.x, me.z, mx, mz, r);
-    brain.s = r.s;
     return { mx: sx, mz: sz, ...extra };
   };
 
-  if (t.idle && chance(r, t.idle)) { brain.s = r.s; return {}; }
+  if (t.idle && chance(r, t.idle)) return {};
 
   // 1. stay ahead of the dark
   const safe = Math.max(DARK_R1 - 120, darkAt(v.tick + 120) - t.margin);

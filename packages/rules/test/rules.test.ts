@@ -183,10 +183,11 @@ describe('the fog', () => {
   it('a bot decides from its view alone: hidden Wardens change nothing', () => {
     const s = createState({ seed: 'botfog', seats: [{ name: 'Bot', bot: 'hard' }, { name: 'Far' }] });
     Object.assign(s.wardens[0], { x: CENTER, z: CENTER });
-    const brain = { ...s.wardens[0].brain };
-    const a = decide(viewFor(s, 0), s.arena, 'hard', { ...brain });
+    const brain = s.wardens[0].brain;
+    const copy = () => ({ r: { ...brain.r }, gx: brain.gx, gz: brain.gz });
+    const a = decide(viewFor(s, 0), s.arena, 'hard', copy());
     Object.assign(s.wardens[1], { x: 500, z: 3500, hp: 1, embers: 0 }); // far away, invisible
-    const b = decide(viewFor(s, 0), s.arena, 'hard', { ...brain });
+    const b = decide(viewFor(s, 0), s.arena, 'hard', copy());
     expect(b).toEqual(a);
   });
 });
