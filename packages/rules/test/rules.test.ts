@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CENTER, CHUNK, DARK_R1, FEE, GRACE, HP, MATCH_MINT_CAP, PILLAR, SIZE, TILE, VIEW, WALL, blocked, createState, darkRadius, decide,
+  CENTER, CHUNK, DARK_R1, FEE, GRACE, HP, MATCH_MINT_CAP, PILLAR, SIZE, TILE, VIEW, WALL, blocked, createState, darkRadius, decide, decodeInputs, encodeEntry,
   eventsFor, foldHead, headZero, logFromOpenings, makeArena, nextHead, replay, Recorder, saltOf, sealOf, settle, stateHash, step,
   tileAt, viewFor, winnerOf, type Input, type LogEntry, type Setup, type State,
 } from '../src/index.ts';
@@ -140,6 +140,22 @@ describe('combat, embers and the dark', () => {
     expect(s.wardens[0].hp).toBe(HP - 1);
   });
 
+  it('aim sets the facing, so you can swing behind you while walking away', () => {
+    const s = duel();
+    step(s, [{ mx: -1, mz: 0, ax: 1, az: 0, swing: true }]);
+    expect(s.wardens[0].fx).toBe(1);
+    expect(s.wardens[1].hp).toBe(HP - 1);
+  });
+
+  it('embers close by drift towards you', () => {
+    const s = duel();
+    s.embers = [{ id: 7, x: CENTER - 130, z: CENTER }];
+    step(s, [{}]);
+    expect(s.embers[0].x).toBeGreaterThan(CENTER - 130);
+    for (let k = 0; k < 10; k++) step(s, [{}]);
+    expect(s.wardens[0].embers).toBe(1);
+  });
+
   it('walls stop you', () => {
     const s = createState({ seed: 'walls', seats: [{ name: 'A' }] });
     Object.assign(s.wardens[0], { x: 160, z: 2000 });
@@ -224,6 +240,16 @@ describe('seals', () => {
     const forged = chunks.map((c) => c.map((o) => ({ ...o })));
     forged[1][0].x += 1;
     expect(foldHead('m1', forged.map((c, chunk) => c.map((o, seat) => sealOf('m1', su.seed, seat, chunk, o))))).not.toBe(head);
+  });
+});
+
+describe('log text', () => {
+  it('round-trips inputs with and without an aim', () => {
+    const a = { mx: 1, mz: -1, ax: 0, az: 0, swing: true, dash: false, takeover: false };
+    const b = { mx: 0, mz: 0, ax: -1, az: 1, swing: false, dash: true, takeover: false };
+    const text = [encodeEntry(3, a), encodeEntry(9, b)].join(';');
+    expect(text).toBe('3:1,-1,1;9:0,0,2,-1,1');
+    expect(decodeInputs(text, 2)).toEqual([{ t: 3, c: 2, i: a }, { t: 9, c: 2, i: b }]);
   });
 });
 

@@ -2,7 +2,7 @@ import { CENTER, SIZE, TILE, blocked, lineOfSight, makeArena, tileAt, FLOOR, typ
 import { decide, type Brain } from './bot.ts';
 import {
   CHUNK, DARK_DMG_EVERY, DARK_END, DARK_R0, DARK_R1, DARK_START, DASH_CD, DASH_MULT, DASH_TICKS, DIAG, EMBER_EVERY, EMBER_LIMIT,
-  EMBER_UNTIL, EMBERS_START, GLOW_MAX, GLOW_PER_EMBER, GRACE, HP, KNOCK, MAX_SEATS, MAX_TICKS, PICKUP, RADIUS, SPEED, SWING_CD,
+  EMBER_UNTIL, EMBERS_START, GLOW_MAX, MAGNET, MAGNET_PULL, GLOW_PER_EMBER, GRACE, HP, KNOCK, MAX_SEATS, MAX_TICKS, PICKUP, RADIUS, SPEED, SWING_CD,
   SWING_RANGE, VIEW,
 } from './constants.ts';
 import { canonical, sha256Hex } from './hash.ts';
@@ -22,19 +22,22 @@ export interface SeatSetup {
 }
 export interface Setup { seed: string; seats: SeatSetup[] }
 
-/** What a player (or the server, for a bot) asks for this tick. Movement is held until changed. */
-export interface Input { mx?: number; mz?: number; swing?: boolean; dash?: boolean; takeover?: boolean }
+/**
+ * What a player (or the server, for a bot) asks for this tick. Movement and aim are held until
+ * changed; aim (ax, az: 8 directions, 0,0 = none) sets the facing, else the facing follows movement.
+ */
+export interface Input { mx?: number; mz?: number; ax?: number; az?: number; swing?: boolean; dash?: boolean; takeover?: boolean }
 
 /** The input that actually took effect: the log and the seals are made of these. */
-export interface Applied { mx: number; mz: number; swing: boolean; dash: boolean; takeover: boolean }
+export interface Applied { mx: number; mz: number; ax: number; az: number; swing: boolean; dash: boolean; takeover: boolean }
 
 export interface Warden {
   name: string;
   x: number; z: number;
   /** facing, each -1..1 (8 directions) */
   fx: number; fz: number;
-  /** held movement */
-  mx: number; mz: number;
+  /** held movement and aim */
+  mx: number; mz: number; ax: number; az: number;
   hp: number; embers: number; kills: number;
   swingCd: number; swingT: number; dashCd: number; dashT: number; grace: number;
   alive: boolean;
@@ -85,7 +88,7 @@ export function createState(setup: Setup): State {
   const wardens: Warden[] = setup.seats.map((seat, i) => {
     const p = arena.spawns[i];
     return {
-      name: seat.name, x: p.x, z: p.z, fx: sign(CENTER - p.x), fz: sign(CENTER - p.z), mx: 0, mz: 0,
+      name: seat.name, x: p.x, z: p.z, fx: sign(CENTER - p.x), fz: sign(CENTER - p.z), mx: 0, mz: 0, ax: 0, az: 0,
       hp: HP, embers: 0, kills: 0, swingCd: 0, swingT: 0, dashCd: 0, dashT: 0, grace: 0, alive: true, fellAt: -1,
       bot: seat.bot ?? null, flame: Math.max(0, Math.min(3, seat.flame ?? 0)),
       brain: { r: rngFrom(`emberfall|bot|${setup.seed}|${i}`), gx: CENTER, gz: CENTER },
@@ -133,7 +136,7 @@ function fall(s: State, i: number, by: number, ev: SimEvent[]): void {
   w.alive = false;
   w.hp = 0;
   w.fellAt = s.tick;
-  w.mx = 0; w.mz = 0; w.dashT = 0;
+  w.mx = 0; w.mz = 0; w.ax = 0; w.az = 0; w.dashT = 0;
   if (by >= 0) s.wardens[by].kills++;
   spill(s, w.x, w.z, w.embers);
   w.embers = 0;
@@ -170,7 +173,7 @@ export function step(s: State, given: (Input | null | undefined)[]): { events: S
     let takeover = false;
     if (!w.bot && g.takeover) { w.bot = 'normal'; takeover = true; }
     if (w.bot) return { ...decide(viewFor(s, i), s.arena, w.bot, w.brain), takeover };
-    return { mx: g.mx, mz: g.mz, swing: g.swing, dash: g.dash };
+    return { mx: g.mx, mz: g.mz, ax: g.ax, az: g.az, swing: g.swing, dash: g.dash };
   });
 
   // 2. apply: held movement, swing and dash (only when ready, so the log holds only what happened)
@@ -179,12 +182,13 @@ export function step(s: State, given: (Input | null | undefined)[]): { events: S
     if (!w.alive) return;
     const q = wish[i];
     const mx = clampDir(q.mx, w.mx), mz = clampDir(q.mz, w.mz);
+    const ax = clampDir(q.ax, w.ax), az = clampDir(q.az, w.az);
     const swing = !!q.swing && w.swingCd === 0;
     const dash = !!q.dash && w.dashCd === 0;
     const takeover = !!q.takeover;
-    if (mx !== w.mx || mz !== w.mz || swing || dash || takeover) applied[i] = { mx, mz, swing, dash, takeover };
-    w.mx = mx; w.mz = mz;
-    if (mx || mz) { w.fx = mx; w.fz = mz; }
+    if (mx !== w.mx || mz !== w.mz || ax !== w.ax || az !== w.az || swing || dash || takeover) applied[i] = { mx, mz, ax, az, swing, dash, takeover };
+    w.mx = mx; w.mz = mz; w.ax = ax; w.az = az;
+    if (ax || az) { w.fx = ax; w.fz = az; } else if (mx || mz) { w.fx = mx; w.fz = mz; }
     if (swing) { w.swingCd = SWING_CD; w.swingT = 6; swung.push(i); ev.push({ t: 'swing', w: i, x: w.x, z: w.z }); }
     if (dash) { w.dashCd = DASH_CD; w.dashT = DASH_TICKS; ev.push({ t: 'dash', w: i, x: w.x, z: w.z }); }
   });
@@ -231,7 +235,15 @@ export function step(s: State, given: (Input | null | undefined)[]): { events: S
     });
   }
 
-  // 6. pick up embers
+  // 6. embers drift towards the nearest Warden close by (a magnet), then get picked up
+  for (const e of s.embers) {
+    let best = -1, bd = MAGNET * MAGNET + 1;
+    s.wardens.forEach((w, i) => { if (!w.alive) return; const d = d2(e.x, e.z, w.x, w.z); if (d < bd) { bd = d; best = i; } });
+    if (best < 0) continue;
+    const w = s.wardens[best];
+    const dx = w.x - e.x, dz = w.z - e.z, k = Math.max(Math.abs(dx), Math.abs(dz));
+    if (k <= MAGNET_PULL) { e.x = w.x; e.z = w.z; } else { e.x += Math.trunc((dx * MAGNET_PULL) / k); e.z += Math.trunc((dz * MAGNET_PULL) / k); }
+  }
   s.wardens.forEach((w, i) => {
     if (!w.alive) return;
     const keep: Ember[] = [];
@@ -325,7 +337,7 @@ export const stateHash = (s: State): string => sha256Hex(canonical({ ...s, arena
 
 export interface LogEntry { t: number; c: number; i: Applied }
 
-const asInput = (a: Applied): Input => ({ mx: a.mx, mz: a.mz, swing: a.swing, dash: a.dash, takeover: a.takeover });
+const asInput = (a: Applied): Input => ({ mx: a.mx, mz: a.mz, ax: a.ax, az: a.az, swing: a.swing, dash: a.dash, takeover: a.takeover });
 
 /**
  * Runs a match again from its log. Human seats get their logged inputs; bots decide again from

@@ -62,7 +62,7 @@ export function decide(v: View, a: Arena, skill: Skill, brain: Brain): Input {
   const r = brain.r;
   const out = (mx: number, mz: number, extra: Input = {}): Input => {
     const [sx, sz] = steer(a, me.x, me.z, mx, mz, r);
-    return { mx: sx, mz: sz, ...extra };
+    return { mx: sx, mz: sz, ax: 0, az: 0, ...extra };
   };
 
   if (t.idle && chance(r, t.idle)) return {};
@@ -89,7 +89,8 @@ export function decide(v: View, a: Arena, skill: Skill, brain: Brain): Input {
       const swing = inReach && me.swingCd === 0 && chance(r, t.swing);
       const dash = !inReach && dist2 < 380 * 380 && dist2 > 200 * 200 && me.dashCd === 0 && chance(r, t.dash);
       // close in, but don't stand on top of them
-      return dist2 < 80 * 80 ? out(mx, mz, { swing }) : out(mx, mz, { swing, dash });
+      // aim at them, so a swing lands even while steering round a wall
+      return dist2 < 80 * 80 ? out(mx, mz, { swing, ax: mx, az: mz }) : out(mx, mz, { swing, dash, ax: mx, az: mz });
     }
     if (dist2 < t.flee * t.flee) {
       // run away from them, bending towards the centre so the dark doesn't get us instead

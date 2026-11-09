@@ -30,15 +30,16 @@ export function foldHead(match: string, chunks: string[][]): string {
 // ---------- inputs as text ----------
 
 const flags = (a: Applied): number => (a.swing ? 1 : 0) | (a.dash ? 2 : 0) | (a.takeover ? 4 : 0);
-export const encodeEntry = (t: number, a: Applied): string => `${t}:${a.mx},${a.mz},${flags(a)}`;
+/** `tick:mx,mz,flags` or, with an aim, `tick:mx,mz,flags,ax,az` */
+export const encodeEntry = (t: number, a: Applied): string => `${t}:${a.mx},${a.mz},${flags(a)}${a.ax || a.az ? `,${a.ax},${a.az}` : ''}`;
 
 export function decodeInputs(text: string, seat: number): LogEntry[] {
   if (!text) return [];
   return text.split(';').map((part) => {
-    const m = /^(\d+):(-?[01]),(-?[01]),([0-7])$/.exec(part);
+    const m = /^(\d+):(-?[01]),(-?[01]),([0-7])(?:,(-?[01]),(-?[01]))?$/.exec(part);
     if (!m) throw new Error(`bad log entry "${part}"`);
     const f = Number(m[4]);
-    return { t: Number(m[1]), c: seat, i: { mx: Number(m[2]), mz: Number(m[3]), swing: !!(f & 1), dash: !!(f & 2), takeover: !!(f & 4) } };
+    return { t: Number(m[1]), c: seat, i: { mx: Number(m[2]), mz: Number(m[3]), ax: Number(m[5] ?? 0), az: Number(m[6] ?? 0), swing: !!(f & 1), dash: !!(f & 2), takeover: !!(f & 4) } };
   });
 }
 

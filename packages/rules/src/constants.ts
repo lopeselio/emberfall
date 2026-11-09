@@ -27,6 +27,9 @@ export const GLOW_PER_EMBER = 30;
 export const GLOW_MAX = 10;
 
 export const PICKUP = 60;
+/** embers within MAGNET drift MAGNET_PULL units a tick towards the nearest Warden */
+export const MAGNET = 140;
+export const MAGNET_PULL = 16;
 export const EMBERS_START = 20;
 export const EMBER_EVERY = 30;
 export const EMBER_UNTIL = 3200;
