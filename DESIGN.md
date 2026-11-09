@@ -19,7 +19,8 @@ Deterministic and isomorphic. Integer maths only, no `Math.random`/`Date`/DOM; e
 
 - 20 ticks per second, at most 3600 ticks (3:00). 1 tile = 100 units; the arena is 40×40 tiles of ruins (walls, pillars, braziers, dead trees), generated from the seed.
 - **Wardens:** 5 hearts. Move 18 units/tick (diagonals 13). **Swing:** hits every Warden within 1.6 tiles in front of you (half-plane of your facing) for 1 heart and knocks them back; 12-tick cooldown; 8 ticks of grace after being hit. **Dash:** 5 ticks at 3× speed, 50-tick cooldown.
-- **Embers:** 20 lie in the arena at the start; one more rises every 1.5 s inside the light until 2:40. Walk over one to carry it. A hit knocks one ember out of you; a fallen Warden spills all of theirs.
+- **Aim:** facing follows movement unless you aim (mouse, right stick): aim is part of the input and the log, so you can swing behind you while backing off.
+- **Embers:** 20 lie in the arena at the start; one more rises every 1.5 s inside the light until 2:40. Walk over one to carry it; within 1.4 tiles they drift towards the nearest Warden. A hit knocks one ember out of you; a fallen Warden spills all of theirs.
 - **Torch and fog:** you see 6.5 tiles around you, blocked by walls. Embers glow: each ember you carry makes you visible from 0.3 tiles further away (up to +3). The terrain is public (moonlight); Wardens and embers are not.
 - **The dark:** a circle of radius 21 tiles holds until 0:20, then shrinks steadily to 3.5 tiles at 2:20. Outside it you lose a heart every second.
 - **End:** when at most one Warden is alive, or at 3:00. Winner: the only survivor; else the living Warden with most embers (then most hearts, then lowest seat); nobody if all fell.
