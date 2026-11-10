@@ -162,14 +162,16 @@ export class Room {
     const plans: SeatPlan[] = this.members.map((m) => (m.bot ? { name: m.name, kind: 'bot', agent: m.bot } : { name: m.name, kind: m.account ? 'human' : 'guest', account: m.account ?? undefined }));
     let planned: Awaited<ReturnType<typeof planSeats>>;
     try { planned = await planSeats(plans); } catch { planned = { seats: plans.map((p) => ({ ...p, warden: null, flame: 0 })), fee: 0 }; }
-    const match = new ChainMatch(planned.seats, planned.fee, this.difficulty);
+    // ranked matches (entry fees, the agents' purses at stake) never run below normal
+    const difficulty: Skill = planned.fee > 0 && this.difficulty === 'easy' ? 'normal' : this.difficulty;
+    const match = new ChainMatch(planned.seats, planned.fee, difficulty);
     this.match = match;
     this.state = createState(match.setup);
     this.recorder = new Recorder(this.members.length);
     const startsAt = Date.now() + COUNTDOWN_MS;
     const seats = planned.seats.map((s) => ({ name: s.name, kind: s.kind, warden: s.warden ?? null, flame: s.flame ?? 0 }));
     this.members.forEach((m, i) => send(m.ws, {
-      t: 'start', you: i, matchId: match.id, startsAt, seats, difficulty: this.difficulty, rules: match.setup.rules, ranked: planned.fee > 0, fee: planned.fee, seedHash: match.rec.seedHash,
+      t: 'start', you: i, matchId: match.id, startsAt, seats, difficulty, rules: match.setup.rules, ranked: planned.fee > 0, fee: planned.fee, seedHash: match.rec.seedHash,
       // the terrain is public (moonlit); only Wardens and embers hide in the dark
       tiles: this.state!.arena.tiles, maxTicks: MAX_TICKS,
     }));
