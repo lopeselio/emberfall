@@ -298,7 +298,7 @@ function Results({ r, you, again, leave, account, watch, err }: { r: ResultsMsg;
   const order = r.seats.map((_, i) => i).sort((a, b) => place[a] - place[b]);
   return (
     <div className="center card results">
-      <small className="dim">You placed #{place[you]} of {r.seats.length} · {fmt(r.endTick)} played</small>
+      <small className="dim">You placed #{place[you]} of {r.seats.length} · {fmt(r.endTick)} played{r.bots && r.difficulty ? ` · Ashen Wardens on ${r.difficulty[0].toUpperCase()}${r.difficulty.slice(1)}` : ''}</small>
       <h2 className={won ? 'win' : 'lose'}>{won ? 'The last light is yours' : r.winner === null ? 'The dark took everyone' : `${r.seats[r.winner].name} carried the light`}</h2>
       <table className="tbl"><tbody>
         {order.map((i) => {
