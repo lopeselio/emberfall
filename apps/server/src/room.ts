@@ -227,7 +227,7 @@ export class Room {
     const match = this.match;
     const { settled } = match.finish(s);
     const msg = (): unknown => ({
-      t: 'results', matchId: match.id, winner: s.winner, endTick: s.tick, difficulty: match.setup.difficulty ?? 'normal', bots: s.wardens.some((w) => w.bot), ranked: match.rec.ranked, fee: match.rec.fee,
+      t: 'results', matchId: match.id, winner: s.winner, endTick: s.tick, difficulty: match.setup.difficulty ?? 'normal', bots: match.rec.seats.some((x) => x.kind === 'bot'), ranked: match.rec.ranked, fee: match.rec.fee,
       seats: s.wardens.map((w, i) => ({ name: w.name, alive: w.alive, hp: w.hp, embers: w.embers, kills: w.kills, fellAt: w.fellAt, warden: match.rec.seats[i].warden, kind: match.rec.seats[i].kind })),
       expected: match.rec.expected, chain: config.chainEnabled, settled: match.rec.settled, error: match.rec.error ?? null,
       txs: match.rec.txs.map((x) => ({ ...x, url: explorerTx(x.hash) })),
