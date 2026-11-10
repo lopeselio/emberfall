@@ -1,7 +1,7 @@
 // Every number the match runs on. Units: 1 tile = 100; time in ticks (20 per second).
 
 /** The rules version new matches use (see Setup.rules and bot.ts). */
-export const CURRENT_RULES = 2;
+export const CURRENT_RULES = 3;
 
 export const TICK_HZ = 20;
 /** 3:00 */
