@@ -72,17 +72,19 @@ Transferring a Warden moves its purse, loot and record; its fee approval resets 
 
 Five Ashen Wardens, each a sub-account of the contract (`moth.`, `wick.`, `gloam.`, `brannoc.`, `tallow.emberfall.testnet`) created by the contract with **only a function-call key** for `approve_fee,offer_to_dark`. `register_agent` mints their Warden and sets a policy (per-match fee cap, per-day spend cap) that the contract enforces on every spend. They pay entry fees, earn prizes and carried-out embers, and offer their surplus to the dark. Their pre-match taunts can come from a TEE-hosted model on NEAR AI Cloud (signed, kept with the match); the model never moves them.
 
-| Bot | Skill | Style |
+| Bot | Persona (`skill`) | Style (rules v3) |
 |---|---|---|
-| Moth | easy | gathers embers, flees from fights |
-| Old Tallow | easy | slow and stubborn |
-| Wick | normal | gathers, fights when ahead |
-| Sister Gloam | normal | stalks the glowing |
-| Brannoc | hard | hunts, dashes in, keeps to the light |
+| Moth | easy · gatherer | chases less far, gathers longer before fighting |
+| Old Tallow | easy · gatherer | slow and stubborn |
+| Wick | normal · stalker | gathers, fights when even or ahead |
+| Sister Gloam | normal · stalker | stalks the glowing |
+| Brannoc | hard · brawler | chases further, starts fighting earlier |
 
-**Balance and rules versions.** Each match records `setup.rules`. In rules v1 (matches with no `rules` field) "easy" was the most careful mind: it spotted danger earliest and never took an even fight, so in a last-one-standing arena it outlived everyone (`pnpm sim 300 6 1`: easy 28% wins per bot, normal 6%). Rules v2 (all new matches) makes skill mean competence instead: easy minds notice danger late, dither, swing less and cut it fine with the dark, while normal and hard minds back off when two rivals are in view. `pnpm sim 400 6` gives hard 31%, normal 15%, easy 12% per bot; with 4 bots 44% / 19% / 18%. v1 is frozen (pinned state hashes in `test/balance.test.ts`), so settled v1 matches still replay and `pnpm verify` still passes on them.
+**Difficulty (rules v3).** The player picks Easy, Normal or Hard (title screen or room lobby; default Normal, remembered in localStorage). It goes into `setup.difficulty`, which is replayed with the opened log, and sets how well *every* rival plays (`LEVELS` in `packages/rules/src/bot.ts`); a persona only adds its style on top. The levers: reaction lag (a bot acts on a Warden only after watching it for `react` ticks, and chases and aims at where it was that long ago: 5 / 4 / 3 ticks = 250 / 200 / 150 ms), aim error (30 / 15 / 5 % of aims a notch off), swing rate in reach (35 / 60 / 80 % per ready tick), dash use, how far away it notices you, how far it chases, retreat at low health, how close it cuts the dark, dithering, and a calm opening (until 2:00 / 1:50 / 1:30 it would rather gather than start a fight). Measured with `pnpm sim:human` (a reference human: ~250 ms reaction, a notch-off aim a quarter of the time, clicks that land about half the ready ticks, knows only what its torch shows) against the three quick-match rivals, 800 matches each: Easy 60% human wins, Normal 42%, Hard 22% (fair share in a 4-way is 25%). Under rules v2 the same human won 17%.
 
-Unnamed rivals join in a gentle order: Wick (normal), Moth (easy), Sister Gloam (normal), Brannoc (hard), Old Tallow (easy). One rival is a fair fight; Brannoc only joins from the fourth.
+**Balance and rules versions.** Each match records `setup.rules`. In rules v1 (matches with no `rules` field) "easy" was the most careful mind: it spotted danger earliest and never took an even fight, so in a last-one-standing arena it outlived everyone (`pnpm sim 300 6 1`: easy 28% wins per bot, normal 6%). Rules v2 (all new matches) makes skill mean competence instead: easy minds notice danger late, dither, swing less and cut it fine with the dark, while normal and hard minds back off when two rivals are in view. `pnpm sim 400 6` gives hard 31%, normal 15%, easy 12% per bot; with 4 bots 44% / 19% / 18%. v1 is frozen (pinned state hashes in `test/balance.test.ts`), so settled v1 matches still replay and `pnpm verify` still passes on them. v2 is frozen the same way since rules v3 (all new matches) added the difficulty; `test/fixtures.test.ts` replays two real settled hosted matches, one v1 and one v2, to their recorded state hashes. Bot logic lives only in packages/rules: the contract checks seals, openings and settlement, never a bot decision, so new rules versions need no contract change.
+
+Unnamed rivals join in a gentle order: Wick, Moth, Sister Gloam, Brannoc, Old Tallow. One rival is a fair fight; Brannoc only joins from the fourth.
 
 ## Server, rooms and sign-in
 
