@@ -22,6 +22,15 @@ describe('rules versions', () => {
     expect(stateHash(run('v1-pin-a', 1))).toBe(pins['v1-pin-a']);
   });
 
+  it('v2 replays exactly as it did when v2 shipped (settled v2 matches exist)', () => {
+    const pins: Record<string, string> = {
+      'v2-pin-a': '2576a21bcbf1b6912cb4b7a83603657bea5cbdc36bed21293a7fe395779ba33f',
+      'v2-pin-b': '66f479200bf544afbe2e11146d82d7766205dc26b81685f6fc5fba00314eef1b',
+      'v2-pin-c': 'd8903e22692cb95ff37b4edb2cbe79ce5cca26db2afcce256508346c6499cd95',
+    };
+    for (const [seed, hash] of Object.entries(pins)) expect(stateHash(run(seed, 2))).toBe(hash);
+  });
+
   it('new matches use v2, and it is a different game', () => {
     expect(CURRENT_RULES).toBe(2);
     const s = run('v1-pin-a', 2);
