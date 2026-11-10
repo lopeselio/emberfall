@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, explorerAccount, type AgentAct, type BoardRow, type LineMsg, type MatchRow, type Me, type ResultsMsg, type RoomMsg, type ServerConfig, type ServerMsg, type SnapMsg, type StartMsg, type Supply } from './api.ts';
+import { STYLE, api, explorerAccount, type AgentAct, type Difficulty, type BoardRow, type LineMsg, type MatchRow, type Me, type ResultsMsg, type RoomMsg, type ServerConfig, type ServerMsg, type SnapMsg, type StartMsg, type Supply } from './api.ts';
 import { Match } from './Match.tsx';
-import { Net, getName, setName, setTutorialDone, tutorialDone } from './net.ts';
+import { Net, getDifficulty, getName, setDifficulty, setName, setTutorialDone, tutorialDone } from './net.ts';
 import { World } from './scene.ts';
 import { isMuted, setMuted, sfx, unlockAudio } from './sound.ts';
 import { Tutorial } from './Tutorial.tsx';
@@ -95,7 +95,7 @@ export function App() {
         <AccountBox account={account} setAccount={setAccount} />
       </header>
       {err && <div className="banner err" onClick={() => setErr('')}>{err}</div>}
-      {world && screen === 'title' && <Title cfg={cfg} account={account} play={(bots) => withTutorial(() => connect({ t: 'quick', bots }))} create={() => connect({ t: 'create' })} join={(code) => withTutorial(() => connect({ t: 'join', code }))} />}
+      {world && screen === 'title' && <Title cfg={cfg} account={account} play={(bots, difficulty) => withTutorial(() => connect({ t: 'quick', bots, difficulty }))} create={(difficulty) => connect({ t: 'create', difficulty })} join={(code) => withTutorial(() => connect({ t: 'join', code }))} />}
       {screen === 'room' && room && <Lobby room={room} send={(m) => net.current?.send(m)} leave={leave} />}
       {world && screen === 'match' && start && (
         <Match key={start.matchId} world={world} start={start} results={results} lines={lines} send={(m) => net.current?.send(m)}
@@ -130,9 +130,11 @@ function AccountBox({ account, setAccount }: { account: string | null; setAccoun
 
 // ---------- title ----------
 
-function Title({ cfg, account, play, create, join }: { cfg: ServerConfig | null; account: string | null; play: (bots: number) => void; create: () => void; join: (code: string) => void }) {
+function Title({ cfg, account, play, create, join }: { cfg: ServerConfig | null; account: string | null; play: (bots: number, difficulty: Difficulty) => void; create: (difficulty: Difficulty) => void; join: (code: string) => void }) {
   const [name, setNameState] = useState(getName());
   const [bots, setBots] = useState(3);
+  const [difficulty, setDiff] = useState<Difficulty>(getDifficulty());
+  const pick = (d: Difficulty): void => { setDiff(d); setDifficulty(d); sfx('click'); };
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get('room')?.toUpperCase() ?? '');
   const [supply, setSupply] = useState<Supply | null>(null);
   const [board, setBoard] = useState<BoardRow[]>([]);
@@ -162,11 +164,12 @@ function Title({ cfg, account, play, create, join }: { cfg: ServerConfig | null;
         <p>A night battle in ruined voxel halls. You see only what your torch lights; so does everyone else. Gather embers, fight, and stay inside the light while <b>the dark closes in</b>. Every three seconds the match is <b>sealed onchain</b>, and anyone can replay it afterwards.</p>
         <label className="name">Your name <input value={name} maxLength={20} placeholder="Warden" onChange={(e) => setNameState(e.target.value)} onBlur={keep} /></label>
         <div className="row mid">
-          <button className="big" onClick={() => { keep(); sfx('click'); play(bots); }}>Fight the Ashen Wardens</button>
+          <button className="big" onClick={() => { keep(); sfx('click'); play(bots, difficulty); }}>Fight the Ashen Wardens</button>
           <label className="dim small">rivals <select value={bots} onChange={(e) => setBots(Number(e.target.value))}>{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
         </div>
+        <DifficultyPicker value={difficulty} onChange={pick} />
         <div className="row mid">
-          <button className="ghost" onClick={() => { keep(); create(); }}>Create a room</button>
+          <button className="ghost" onClick={() => { keep(); create(difficulty); }}>Create a room</button>
           <input className="code" value={code} maxLength={4} placeholder="CODE" onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} />
           <button className="ghost" disabled={code.length !== 4} onClick={() => { keep(); join(code); }}>Join</button>
         </div>
@@ -198,8 +201,8 @@ function Title({ cfg, account, play, create, join }: { cfg: ServerConfig | null;
         </section>
         <section className="panel">
           <h2>The Ashen Wardens</h2>
-          <p className="dim small">AI rivals with their own NEAR accounts (function-call keys only) and Wardens. They pay entry fees within caps the contract enforces, and burn their surplus as offerings to the dark. They see only their own torchlight.</p>
-          <ul className="bots">{(cfg?.bots ?? []).map((b) => <li key={b.label}><b>{b.name}</b> <small className={b.skill}>{b.skill}</small> <a href={explorerAccount(b.account)} target="_blank" rel="noreferrer">{b.account}</a></li>)}</ul>
+          <p className="dim small">AI rivals with their own NEAR accounts (function-call keys only) and Wardens. They pay entry fees within caps the contract enforces, and burn their surplus as offerings to the dark. They see only their own torchlight, and react about as fast as a person. The difficulty you pick sets how well they all play; each keeps its style.</p>
+          <ul className="bots">{(cfg?.bots ?? []).map((b) => <li key={b.label}><b>{b.name}</b> <small className={b.skill}>{STYLE[b.skill] ?? b.skill}</small> <a href={explorerAccount(b.account)} target="_blank" rel="noreferrer">{b.account}</a></li>)}</ul>
           {acts.slice(0, 4).map((a) => <p key={a.at} className="small dim">{a.who} {a.what} {a.url && <a href={a.url} target="_blank" rel="noreferrer">tx</a>}</p>)}
         </section>
         <section className="panel">
@@ -274,6 +277,24 @@ function WardenPanel({ account }: { account: string | null }) {
   );
 }
 
+const DIFFS: { d: Difficulty; label: string; hint: string }[] = [
+  { d: 'easy', label: 'Easy', hint: 'slow to react, wild swings: learn the arena' },
+  { d: 'normal', label: 'Normal', hint: 'about as quick as you: a fair four-way fight' },
+  { d: 'hard', label: 'Hard', hint: 'sharp, relentless rivals' },
+];
+
+/** Easy / Normal / Hard for every Ashen Warden in the match (remembered on this device). */
+function DifficultyPicker({ value, onChange }: { value: Difficulty; onChange: (d: Difficulty) => void }) {
+  return (
+    <div className="difficulty">
+      <div className="seg" role="radiogroup" aria-label="Ashen Warden difficulty">
+        {DIFFS.map((x) => <button key={x.d} role="radio" aria-checked={value === x.d} className={`small ${value === x.d ? 'on' : 'ghost'}`} onClick={() => onChange(x.d)}>{x.label}</button>)}
+      </div>
+      <small className="dim">{DIFFS.find((x) => x.d === value)?.hint}</small>
+    </div>
+  );
+}
+
 // ---------- room ----------
 
 function Lobby({ room, send, leave }: { room: RoomMsg; send: (m: unknown) => void; leave: () => void }) {
@@ -290,15 +311,18 @@ function Lobby({ room, send, leave }: { room: RoomMsg; send: (m: unknown) => voi
           {room.seats.map((s, i) => (
             <li key={i} className={s.ready ? 'ready' : ''}>
               <span className="dot" style={{ background: ['#3f6fb5', '#b5423f', '#3fa566', '#c49a3a', '#8a4fc4', '#3fb0aa'][i] }} />
-              <b>{s.name}</b>{i === room.you && ' (you)'} <small className="dim">{s.kind === 'bot' ? `Ashen Warden · ${s.skill}` : s.signedIn ? 'signed in' : 'guest'}</small>
+              <b>{s.name}</b>{i === room.you && ' (you)'} <small className="dim">{s.kind === 'bot' ? `Ashen Warden · ${STYLE[s.skill ?? ''] ?? s.skill}` : s.signedIn ? 'signed in' : 'guest'}</small>
               <span className="grow" />{s.ready ? '✓ ready' : 'waiting'}
               {room.host && i !== room.you && <button className="ghost small" onClick={() => send({ t: 'kick', seat: i })}>✕</button>}
             </li>
           ))}
         </ul>
+        {room.host
+          ? <DifficultyPicker value={room.difficulty} onChange={(d) => { setDifficulty(d); send({ t: 'difficulty', difficulty: d }); }} />
+          : <p className="small dim">Ashen Wardens play on <b>{room.difficulty}</b> (the host picks).</p>}
         {room.host && room.seats.length < 6 && (
           <div className="row">
-            <select value={bot} onChange={(e) => setBot(e.target.value)}><option value="">any rival</option>{room.bots.filter((b) => !room.seats.some((s) => s.name === b.name)).map((b) => <option key={b.label} value={b.label}>{b.name} ({b.skill})</option>)}</select>
+            <select value={bot} onChange={(e) => setBot(e.target.value)}><option value="">any rival</option>{room.bots.filter((b) => !room.seats.some((s) => s.name === b.name)).map((b) => <option key={b.label} value={b.label}>{b.name} ({STYLE[b.skill] ?? b.skill})</option>)}</select>
             <button className="ghost small" onClick={() => send({ t: 'addBot', label: bot || undefined })}>Add an Ashen Warden</button>
           </div>
         )}

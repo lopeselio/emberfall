@@ -21,12 +21,16 @@ export interface MatchRow { id: string; createdAt: number; names: string[]; winn
 export interface AgentAct { at: number; who: string; what: string; url?: string }
 
 export interface RoomSeat { name: string; kind: 'bot' | 'human'; ready: boolean; signedIn: boolean; here: boolean; skill: string | null }
-export interface RoomMsg { t: 'room'; code: string; phase: string; seats: RoomSeat[]; you: number; host: boolean; bots: { label: string; name: string; skill: string }[] }
-export interface StartMsg { t: 'start'; you: number; matchId: string; startsAt: number; seats: { name: string; kind: string; warden: string | null; flame: number }[]; ranked: boolean; fee: number; seedHash: string; tiles: Tile[]; maxTicks: number }
+export type Difficulty = 'easy' | 'normal' | 'hard';
+export interface RoomMsg { t: 'room'; code: string; phase: string; seats: RoomSeat[]; you: number; host: boolean; difficulty: Difficulty; bots: { label: string; name: string; skill: string }[] }
+export interface StartMsg { t: 'start'; you: number; matchId: string; startsAt: number; difficulty: Difficulty; rules: number; seats: { name: string; kind: string; warden: string | null; flame: number }[]; ranked: boolean; fee: number; seedHash: string; tiles: Tile[]; maxTicks: number }
 export interface SnapMsg { t: 'snap'; v: View; ev: SimEvent[] }
 export interface ResultSeat { name: string; alive: boolean; hp: number; embers: number; kills: number; fellAt: number; warden: string | null; kind: string }
-export interface ResultsMsg { t: 'results'; matchId: string; winner: number | null; endTick: number; ranked: boolean; fee: number; seats: ResultSeat[]; expected: Settlement; chain: boolean; settled: boolean; error: string | null; txs: { what: string; hash: string; url: string }[] }
+export interface ResultsMsg { t: 'results'; matchId: string; winner: number | null; endTick: number; difficulty: Difficulty; bots: boolean; ranked: boolean; fee: number; seats: ResultSeat[]; expected: Settlement; chain: boolean; settled: boolean; error: string | null; txs: { what: string; hash: string; url: string }[] }
 export interface LineMsg { t: 'line'; who: string; text: string; signed: boolean }
 export type ServerMsg = RoomMsg | StartMsg | SnapMsg | ResultsMsg | LineMsg | { t: 'error'; msg: string } | { t: 'kicked' } | { t: 'hello'; account: string | null };
 
 export const explorerAccount = (a: string): string => `https://testnet.nearblocks.io/address/${a}`;
+
+/** What each persona's skill means since rules v3, where the difficulty sets how well every rival plays. */
+export const STYLE: Record<string, string> = { easy: 'gatherer', normal: 'stalker', hard: 'brawler' };
