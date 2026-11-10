@@ -4,6 +4,9 @@ import {
   CHUNK, MAX_SEATS, MAX_TICKS, Recorder, TICK_HZ, createState, eventsFor, step, viewFor, type Input, type SimEvent, type State,
 } from '@emberfall/rules';
 import { AGENTS, taunt, type AgentDef } from './agents.ts';
+
+/** The order unnamed AI rivals join in (normal, easy, normal, hard, easy). */
+const FILL_ORDER = ['wick', 'moth', 'gloam', 'brannoc', 'tallow'];
 import { config, explorerTx } from './config.ts';
 import { ChainMatch, planSeats, type SeatPlan } from './match.ts';
 
@@ -69,7 +72,10 @@ export class Room {
   addBot(by: WebSocket | null, label?: string): void {
     if (this.phase !== 'lobby' || (by && this.seatOf(by) !== this.hostIdx) || this.members.length >= MAX_SEATS) return;
     const used = new Set(this.members.map((m) => m.bot?.label));
-    const a = AGENTS.find((x) => x.label === label && !used.has(x.label)) ?? AGENTS.find((x) => !used.has(x.label));
+    // unnamed rivals join in a gentle order: one rival is a fair fight, Brannoc only from the fourth
+    const a = AGENTS.find((x) => x.label === label && !used.has(x.label))
+      ?? FILL_ORDER.map((l) => AGENTS.find((x) => x.label === l)).find((x) => x && !used.has(x.label))
+      ?? AGENTS.find((x) => !used.has(x.label));
     if (!a) return;
     this.members.push({ ws: null, name: a.name, account: null, ready: true, bot: a, want: {}, sent: 0 });
     this.broadcastRoom();
