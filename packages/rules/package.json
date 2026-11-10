@@ -10,7 +10,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "sim": "tsx src/cli-sim.ts"
+    "sim": "tsx src/cli-sim.ts",
+    "sim:human": "tsx src/cli-human.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.0.1"

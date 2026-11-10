@@ -55,7 +55,7 @@ export function dir8(dx: number, dz: number): [number, number] {
 }
 
 /** Turn a wished direction into one that isn't walking into a wall. */
-function steer(a: Arena, x: number, z: number, mx: number, mz: number, r: Rng): [number, number] {
+export function steer(a: Arena, x: number, z: number, mx: number, mz: number, r: Rng): [number, number] {
   if (!mx && !mz) return [0, 0];
   const tries: [number, number][] = [[mx, mz], [mx, 0], [0, mz], [-mz, mx], [mz, -mx]];
   if (chance(r, 50)) [tries[3], tries[4]] = [tries[4], tries[3]];
