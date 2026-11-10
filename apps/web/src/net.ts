@@ -1,4 +1,4 @@
-import type { ServerMsg } from './api.ts';
+import type { Difficulty, ServerMsg } from './api.ts';
 
 // One WebSocket to the room server. Messages are queued until it opens.
 
@@ -26,3 +26,8 @@ export function setName(n: string): void { try { localStorage.setItem(NAME, n); 
 const TUT = 'emberfall:walkthrough-done';
 export function tutorialDone(): boolean { try { return localStorage.getItem(TUT) === '1'; } catch { return false; } }
 export function setTutorialDone(): void { try { localStorage.setItem(TUT, '1'); } catch { /* fine */ } }
+const DIFF = 'emberfall:difficulty';
+export function getDifficulty(): Difficulty {
+  try { const d = localStorage.getItem(DIFF); return d === 'easy' || d === 'hard' ? d : 'normal'; } catch { return 'normal'; }
+}
+export function setDifficulty(d: Difficulty): void { try { localStorage.setItem(DIFF, d); } catch { /* fine */ } }
