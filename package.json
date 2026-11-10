@@ -12,6 +12,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "sim": "pnpm --filter @emberfall/rules sim",
+    "sim:human": "pnpm --filter @emberfall/rules sim:human",
     "verify": "pnpm --filter @emberfall/server verify",
     "e2e": "pnpm --filter @emberfall/server e2e",
     "setup:agents": "pnpm --filter @emberfall/server setup:agents",
