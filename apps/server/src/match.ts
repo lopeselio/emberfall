@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
-  CHUNK, FEE, headZero, nextHead, sealOf, settle, sha256Hex, stateHash, type Opening, type SeatSetup, type Setup, type State,
+  CHUNK, FEE, headZero, nextHead, sealOf, settle, sha256Hex, stateHash, type Opening, type SeatSetup, type Setup, type Skill, type State,
   CURRENT_RULES,
 } from '@emberfall/rules';
 import { AGENTS, accountOf, agentWarden, type AgentDef } from './agents.ts';
@@ -63,8 +63,9 @@ export class ChainMatch {
   private pending: string[][] = [];
   private queue: Promise<void> = Promise.resolve();
 
-  constructor(readonly seats: SeatPlan[], readonly fee: number) {
-    this.setup = { seed: this.seed, rules: CURRENT_RULES, seats: seats.map((s): SeatSetup => ({ name: s.name, ...(s.kind === 'bot' ? { bot: s.agent?.skill ?? 'normal' } : {}), flame: s.flame ?? 0 })) };
+  constructor(readonly seats: SeatPlan[], readonly fee: number, difficulty: Skill = 'normal') {
+    // the rules version and difficulty are part of the setup the opened log is replayed with
+    this.setup = { seed: this.seed, rules: CURRENT_RULES, difficulty, seats: seats.map((s): SeatSetup => ({ name: s.name, ...(s.kind === 'bot' ? { bot: s.agent?.skill ?? 'normal' } : {}), flame: s.flame ?? 0 })) };
     const rows: SeatRec[] = seats.map((s) => ({ name: s.name, kind: s.kind, account: s.account, warden: s.warden ?? null, bot: s.agent?.label }));
     this.rec = {
       id: this.id, createdAt: Date.now(), setup: { ...this.setup, seed: '' }, seats: rows, seedHash: sha256Hex(this.seed), fee, ranked: fee > 0,
