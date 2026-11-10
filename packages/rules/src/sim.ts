@@ -22,9 +22,14 @@ export interface SeatSetup {
 }
 /**
  * `rules` picks the bots' tuning: missing = 1 (the original, frozen so settled matches still replay
- * and verify), 2 = the rebalance in bot.ts. New matches use CURRENT_RULES.
+ * and verify), 2 = the rebalance in bot.ts, 3 = an explicit difficulty and minds with human limits
+ * (reaction lag, aim error). v1 and v2 are frozen too. New matches use CURRENT_RULES.
  */
-export interface Setup { seed: string; seats: SeatSetup[]; rules?: number }
+export interface Setup {
+  seed: string; seats: SeatSetup[]; rules?: number;
+  /** v3+: how hard every AI rival plays (missing = normal). Each persona keeps its style on top. */
+  difficulty?: Skill;
+}
 
 /**
  * What a player (or the server, for a bot) asks for this tick. Movement and aim are held until
@@ -64,6 +69,8 @@ export interface State {
   winner: number | null;
   /** the rules version (left unset for v1, so v1 states hash exactly as before) */
   rules?: number;
+  /** v3+ only: the bots' difficulty */
+  difficulty?: Skill;
   /** derived from the seed; left out of the state hash */
   arena: Arena;
 }
@@ -97,10 +104,11 @@ export function createState(setup: Setup): State {
       name: seat.name, x: p.x, z: p.z, fx: sign(CENTER - p.x), fz: sign(CENTER - p.z), mx: 0, mz: 0, ax: 0, az: 0,
       hp: HP, embers: 0, kills: 0, swingCd: 0, swingT: 0, dashCd: 0, dashT: 0, grace: 0, alive: true, fellAt: -1,
       bot: seat.bot ?? null, flame: Math.max(0, Math.min(3, seat.flame ?? 0)),
-      brain: { r: rngFrom(`emberfall|bot|${setup.seed}|${i}`), gx: CENTER, gz: CENTER },
+      brain: { r: rngFrom(`emberfall|bot|${setup.seed}|${i}`), gx: CENTER, gz: CENTER, ...((setup.rules ?? 1) >= 3 ? { foe: -1, seen: 0, trail: [] } : {}) },
     };
   });
-  const s: State = { seed: setup.seed, tick: 0, wardens, embers: [], nextEmber: 0, rng: rngFrom(`emberfall|sim|${setup.seed}`), over: false, winner: null, arena, ...(setup.rules && setup.rules !== 1 ? { rules: setup.rules } : {}) };
+  const s: State = { seed: setup.seed, tick: 0, wardens, embers: [], nextEmber: 0, rng: rngFrom(`emberfall|sim|${setup.seed}`), over: false, winner: null, arena, ...(setup.rules && setup.rules !== 1 ? { rules: setup.rules } : {}),
+    ...((setup.rules ?? 1) >= 3 ? { difficulty: setup.difficulty === 'easy' || setup.difficulty === 'hard' ? setup.difficulty : 'normal' } : {}) };
   for (let k = 0; k < EMBERS_START; k++) spawnEmber(s);
   return s;
 }
@@ -178,7 +186,7 @@ export function step(s: State, given: (Input | null | undefined)[]): { events: S
     const g = given[i] ?? {};
     let takeover = false;
     if (!w.bot && g.takeover) { w.bot = 'normal'; takeover = true; }
-    if (w.bot) return { ...decide(viewFor(s, i), s.arena, w.bot, w.brain, s.rules ?? 1), takeover };
+    if (w.bot) return { ...decide(viewFor(s, i), s.arena, w.bot, w.brain, s.rules ?? 1, s.difficulty), takeover };
     return { mx: g.mx, mz: g.mz, ax: g.ax, az: g.az, swing: g.swing, dash: g.dash };
   });
 

@@ -3,12 +3,13 @@ import { humanDecide, humanMind } from './human.ts';
 import { createState, step, viewFor, type Skill, type State } from './sim.ts';
 
 // Can a normal person win? The reference human (human.ts) against the Ashen Wardens, many seeded matches.
-//   pnpm sim:human [matches] [rivals] [rules]
+//   pnpm sim:human [matches] [rivals] [rules] [easy|normal|hard]
 // Rivals are the ones a quick match gets: Wick (normal), Moth (easy), Sister Gloam (normal), Brannoc (hard), Old Tallow (easy).
 const argv = (globalThis as unknown as { process: { argv: string[] } }).process.argv;
 const n = Number(argv[2] ?? 400);
 const rivals = Math.max(1, Math.min(5, Number(argv[3] ?? 3)));
 const rules = Number(argv[4] ?? CURRENT_RULES);
+const difficulty = (['easy', 'normal', 'hard'].includes(argv[5]) ? argv[5] : 'normal') as Skill;
 const FILL: Skill[] = ['normal', 'easy', 'normal', 'hard', 'easy'];
 
 /** 1 = first; the winner, then the living by embers and hearts, then the fallen, latest first. */
@@ -32,7 +33,7 @@ for (let m = 0; m < n; m++) {
   const seats = rivals + 1;
   const me = m % seats; // rotate the spawn
   let b = 0;
-  const s = createState({ seed, rules, seats: Array.from({ length: seats }, (_, i) => (i === me ? { name: 'human' } : { name: `bot${i}`, bot: FILL[b++] })) });
+  const s = createState({ seed, rules, difficulty, seats: Array.from({ length: seats }, (_, i) => (i === me ? { name: 'human' } : { name: `bot${i}`, bot: FILL[b++] })) });
   const mind = humanMind(seed, me);
   let end = '';
   while (!s.over) {
@@ -52,7 +53,7 @@ for (let m = 0; m < n; m++) {
 }
 lens.sort((x, y) => x - y);
 const sec = (t: number): string => `${(t / TICK_HZ).toFixed(0)} s`;
-console.log(`${n} matches, reference human vs ${rivals} bot(s) [${FILL.slice(0, rivals).join(', ')}], rules v${rules}`);
+console.log(`${n} matches, reference human vs ${rivals} bot(s) [${FILL.slice(0, rivals).join(', ')}], rules v${rules}${rules >= 3 ? `, ${difficulty}` : ''}`);
 console.log(`human wins ${((100 * wins) / n).toFixed(1)}% (fair share ${(100 / (rivals + 1)).toFixed(0)}%), mean place ${(placeSum / n).toFixed(2)} of ${rivals + 1}`);
 console.log(`match length mean ${sec(ticks / n)}, median ${sec(lens[n >> 1])}, p90 ${sec(lens[Math.floor(n * 0.9)])}`);
 console.log(`human kills/match ${(kills / n).toFixed(2)}, embers held at the end ${(embers / n).toFixed(1)}`);
