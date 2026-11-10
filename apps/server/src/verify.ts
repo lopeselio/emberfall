@@ -46,7 +46,8 @@ const b = (await (await fetch(`${HOST}/api/match/${id}`)).json()) as Bundle & { 
 if (b.error) { console.error(b.error); process.exit(2); }
 if (!b.over || !b.seed || !b.setup) { console.error('that match is not over yet'); process.exit(2); }
 const c = await viewCall<ChainMatch | null>('get_match', { match_id: id });
-console.log(`match ${id} on ${CONTRACT}: ${b.seats.map((s) => s.name).join(', ')}\n`);
+console.log(`match ${id} on ${CONTRACT}: ${b.seats.map((s) => s.name).join(', ')}`);
+console.log(`rules v${b.setup.rules ?? 1}${(b.setup.rules ?? 1) >= 3 ? `, bots on ${b.setup.difficulty ?? 'normal'}` : ''}\n`);
 check(!!c, 'the contract has this match');
 if (!c) process.exit(1);
 
