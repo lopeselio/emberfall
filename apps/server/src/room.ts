@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import {
-  CHUNK, MAX_SEATS, MAX_TICKS, Recorder, TICK_HZ, createState, eventsFor, step, viewFor, type Input, type SimEvent, type State,
+  CHUNK, MAX_SEATS, MAX_TICKS, Recorder, TICK_HZ, createState, eventsFor, step, viewFor, type Input, type SimEvent, type Skill, type State,
 } from '@emberfall/rules';
 import { AGENTS, taunt, type AgentDef } from './agents.ts';
 
@@ -28,6 +28,7 @@ interface Member {
 
 const rooms = new Map<string, Room>();
 const COUNTDOWN_MS = 3000;
+export const asDifficulty = (d: unknown): Skill => (d === 'easy' || d === 'hard' ? d : 'normal');
 const send = (ws: WebSocket | null, msg: unknown): void => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); };
 
 function newCode(): string {
@@ -42,6 +43,8 @@ export class Room {
   readonly code = newCode();
   phase: Phase = 'lobby';
   members: Member[] = [];
+  /** how hard every AI rival in this room plays (rules v3) */
+  difficulty: Skill = 'normal';
   private state: State | null = null;
   private match: ChainMatch | null = null;
   private recorder: Recorder | null = null;
@@ -78,6 +81,12 @@ export class Room {
       ?? AGENTS.find((x) => !used.has(x.label));
     if (!a) return;
     this.members.push({ ws: null, name: a.name, account: null, ready: true, bot: a, want: {}, sent: 0 });
+    this.broadcastRoom();
+  }
+
+  setDifficulty(by: WebSocket | null, d: unknown): void {
+    if (this.phase !== 'lobby' || (by && this.seatOf(by) !== this.hostIdx)) return;
+    this.difficulty = asDifficulty(d);
     this.broadcastRoom();
   }
 
@@ -143,7 +152,7 @@ export class Room {
 
   private broadcastRoom(): void {
     const seats = this.members.map((m) => ({ name: m.name, kind: m.bot ? 'bot' : 'human', ready: m.ready, signedIn: !!m.account, here: !!m.ws || !!m.bot, skill: m.bot?.skill ?? null }));
-    this.members.forEach((m, i) => send(m.ws, { t: 'room', code: this.code, phase: this.phase, seats, you: i, host: i === this.hostIdx, bots: AGENTS.map((a) => ({ label: a.label, name: a.name, skill: a.skill })) }));
+    this.members.forEach((m, i) => send(m.ws, { t: 'room', code: this.code, phase: this.phase, seats, you: i, host: i === this.hostIdx, difficulty: this.difficulty, bots: AGENTS.map((a) => ({ label: a.label, name: a.name, skill: a.skill })) }));
   }
 
   private async start(): Promise<void> {
@@ -153,14 +162,14 @@ export class Room {
     const plans: SeatPlan[] = this.members.map((m) => (m.bot ? { name: m.name, kind: 'bot', agent: m.bot } : { name: m.name, kind: m.account ? 'human' : 'guest', account: m.account ?? undefined }));
     let planned: Awaited<ReturnType<typeof planSeats>>;
     try { planned = await planSeats(plans); } catch { planned = { seats: plans.map((p) => ({ ...p, warden: null, flame: 0 })), fee: 0 }; }
-    const match = new ChainMatch(planned.seats, planned.fee);
+    const match = new ChainMatch(planned.seats, planned.fee, this.difficulty);
     this.match = match;
     this.state = createState(match.setup);
     this.recorder = new Recorder(this.members.length);
     const startsAt = Date.now() + COUNTDOWN_MS;
     const seats = planned.seats.map((s) => ({ name: s.name, kind: s.kind, warden: s.warden ?? null, flame: s.flame ?? 0 }));
     this.members.forEach((m, i) => send(m.ws, {
-      t: 'start', you: i, matchId: match.id, startsAt, seats, ranked: planned.fee > 0, fee: planned.fee, seedHash: match.rec.seedHash,
+      t: 'start', you: i, matchId: match.id, startsAt, seats, difficulty: this.difficulty, rules: match.setup.rules, ranked: planned.fee > 0, fee: planned.fee, seedHash: match.rec.seedHash,
       // the terrain is public (moonlit); only Wardens and embers hide in the dark
       tiles: this.state!.arena.tiles, maxTicks: MAX_TICKS,
     }));
@@ -216,7 +225,7 @@ export class Room {
     const match = this.match;
     const { settled } = match.finish(s);
     const msg = (): unknown => ({
-      t: 'results', matchId: match.id, winner: s.winner, endTick: s.tick, ranked: match.rec.ranked, fee: match.rec.fee,
+      t: 'results', matchId: match.id, winner: s.winner, endTick: s.tick, difficulty: match.setup.difficulty ?? 'normal', bots: s.wardens.some((w) => w.bot), ranked: match.rec.ranked, fee: match.rec.fee,
       seats: s.wardens.map((w, i) => ({ name: w.name, alive: w.alive, hp: w.hp, embers: w.embers, kills: w.kills, fellAt: w.fellAt, warden: match.rec.seats[i].warden, kind: match.rec.seats[i].kind })),
       expected: match.rec.expected, chain: config.chainEnabled, settled: match.rec.settled, error: match.rec.error ?? null,
       txs: match.rec.txs.map((x) => ({ ...x, url: explorerTx(x.hash) })),

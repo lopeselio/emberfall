@@ -7,7 +7,7 @@ import { BA_PATH, accountFromHeaders, authHandler } from './ba.ts';
 import { view } from './chain.ts';
 import { config, explorerTx, hasKey } from './config.ts';
 import { attestation, nearAiEnabled } from './nearai.ts';
-import { Room } from './room.ts';
+import { Room, asDifficulty } from './room.ts';
 import { loadMatch, recentMatches, type MatchRecord } from './store.ts';
 
 // ---------- tiny HTTP helpers ----------
@@ -117,11 +117,12 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     try {
       switch (m.t) {
         case 'hello': name = cleanName(m.name); reply({ t: 'hello', account }); break;
-        case 'create': room?.leave(ws); room = new Room(); room.join(ws, name, account); break;
+        case 'create': room?.leave(ws); room = new Room(); room.difficulty = asDifficulty(m.difficulty); room.join(ws, name, account); break;
         case 'quick': {
           // a match against the Ashen Wardens right away
           room?.leave(ws);
           room = new Room();
+          room.difficulty = asDifficulty(m.difficulty);
           room.join(ws, name, account);
           const n = Math.max(1, Math.min(5, Number(m.bots ?? 3)));
           for (let k = 0; k < n; k++) room.addBot(null);
@@ -130,6 +131,7 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
         }
         case 'join': { const r = Room.get(String(m.code ?? '')); if (!r) throw new Error('no room with that code'); room?.leave(ws); r.join(ws, name, account); room = r; break; }
         case 'addBot': room?.addBot(ws, typeof m.label === 'string' ? m.label : undefined); break;
+        case 'difficulty': room?.setDifficulty(ws, m.difficulty); break;
         case 'kick': room?.kick(ws, Number(m.seat)); break;
         case 'ready': room?.setReady(ws, !!m.ready); break;
         case 'again': room?.again(ws); break;
