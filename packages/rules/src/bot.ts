@@ -9,12 +9,33 @@ import type { Input, Skill, View } from './sim.ts';
 
 export interface Brain { r: Rng; gx: number; gz: number }
 
-interface Temper { fightHp: number; swing: number; dash: number; margin: number; flee: number; idle: number; engage: number }
-const TEMPER: Record<Skill, Temper> = {
-  easy: { fightHp: 4, swing: 40, dash: 2, margin: 160, flee: 420, idle: 12, engage: 300 },
-  normal: { fightHp: 3, swing: 70, dash: 8, margin: 260, flee: 320, idle: 3, engage: 450 },
-  hard: { fightHp: 2, swing: 80, dash: 16, margin: 380, flee: 220, idle: 0, engage: 650 },
+/**
+ * fightHp: least health to start a fight · swing/dash: % chance per chance · margin: how far inside the
+ * coming dark they keep · flee: how near a stronger Warden gets before they run · idle: % of ticks spent
+ * dithering · engage: how far they'll chase · even: whether they take fights at equal health · wary: how
+ * many rivals in view make them back off rather than fight (0 = never).
+ */
+interface Temper { fightHp: number; swing: number; dash: number; margin: number; flee: number; idle: number; engage: number; even: boolean; wary: number }
+
+// Rules v1, frozen: settled matches replay with exactly these. In v1 "easy" was the most careful
+// mind (it spots danger earliest and never takes an even fight), so it outlived everyone: easy bots
+// won over 4× as often as normal ones in `pnpm sim`.
+const V1: Record<Skill, Temper> = {
+  easy: { fightHp: 4, swing: 40, dash: 2, margin: 160, flee: 420, idle: 12, engage: 300, even: false, wary: 0 },
+  normal: { fightHp: 3, swing: 70, dash: 8, margin: 260, flee: 320, idle: 3, engage: 450, even: false, wary: 0 },
+  hard: { fightHp: 2, swing: 80, dash: 16, margin: 380, flee: 220, idle: 0, engage: 650, even: true, wary: 0 },
 };
+
+// Rules v2: skill is competence, not caution. Easy minds notice danger late, dither, swing less and
+// cut it fine with the dark, and they're brave enough to take even fights they then lose. Normal and
+// hard minds also back off when two rivals are in view, instead of walking into a third-party brawl.
+const V2: Record<Skill, Temper> = {
+  easy: { fightHp: 3, swing: 20, dash: 2, margin: 100, flee: 140, idle: 10, engage: 340, even: true, wary: 0 },
+  normal: { fightHp: 3, swing: 70, dash: 8, margin: 260, flee: 320, idle: 3, engage: 450, even: false, wary: 2 },
+  hard: { fightHp: 2, swing: 90, dash: 16, margin: 380, flee: 280, idle: 0, engage: 650, even: true, wary: 2 },
+};
+
+export const TEMPERS: Record<number, Record<Skill, Temper>> = { 1: V1, 2: V2 };
 
 const sign = (n: number): number => (n > 0 ? 1 : n < 0 ? -1 : 0);
 const d2 = (ax: number, az: number, bx: number, bz: number): number => (ax - bx) * (ax - bx) + (az - bz) * (az - bz);
@@ -55,10 +76,10 @@ function newGoal(a: Arena, r: Rng, within: number, b: Brain): void {
 }
 
 /** One tick's decision for a bot. Mutates only the bot's own brain. */
-export function decide(v: View, a: Arena, skill: Skill, brain: Brain): Input {
+export function decide(v: View, a: Arena, skill: Skill, brain: Brain, rules = 1): Input {
   const me = v.me;
   if (!me.alive) return {};
-  const t = TEMPER[skill];
+  const t = (TEMPERS[rules] ?? V1)[skill];
   const r = brain.r;
   const out = (mx: number, mz: number, extra: Input = {}): Input => {
     const [sx, sz] = steer(a, me.x, me.z, mx, mz, r);
@@ -79,8 +100,9 @@ export function decide(v: View, a: Arena, skill: Skill, brain: Brain): Input {
   for (const o of v.others) if (!foe || d2(o.x, o.z, me.x, me.z) < d2(foe.x, foe.z, me.x, me.z)) foe = o;
   if (foe) {
     const dist2 = d2(foe.x, foe.z, me.x, me.z);
-    // hard bots take even fights; the others only fights they're ahead in (or ones worth the embers)
-    const fight = me.hp >= t.fightHp && (skill === 'hard' ? me.hp + 1 >= foe.hp : me.hp > foe.hp || (me.hp === foe.hp && foe.embers > me.embers));
+    // some take even fights; the others only fights they're ahead in (or ones worth the embers)
+    const crowded = t.wary > 0 && v.others.filter((o) => d2(o.x, o.z, me.x, me.z) <= t.engage * t.engage).length >= t.wary;
+    const fight = !crowded && me.hp >= t.fightHp && (t.even ? me.hp + 1 >= foe.hp : me.hp > foe.hp || (me.hp === foe.hp && foe.embers > me.embers));
     // early on, while the light is wide, they'd rather gather than fight
     const engage = v.tick < DARK_START ? Math.trunc(t.engage / 2) : t.engage;
     if (fight && dist2 <= engage * engage) {
@@ -92,7 +114,7 @@ export function decide(v: View, a: Arena, skill: Skill, brain: Brain): Input {
       // aim at them, so a swing lands even while steering round a wall
       return dist2 < 80 * 80 ? out(mx, mz, { swing, ax: mx, az: mz }) : out(mx, mz, { swing, dash, ax: mx, az: mz });
     }
-    if (dist2 < t.flee * t.flee) {
+    if (dist2 < t.flee * t.flee || (crowded && dist2 < t.engage * t.engage)) {
       // run away from them, bending towards the centre so the dark doesn't get us instead
       const [mx, mz] = dir8(me.x - foe.x + Math.trunc((CENTER - me.x) / 3), me.z - foe.z + Math.trunc((CENTER - me.z) / 3));
       return out(mx, mz, { dash: me.dashCd === 0 && chance(r, t.dash) });

@@ -20,7 +20,11 @@ export interface SeatSetup {
   /** torch flame from the Warden's loot (0 plain, 1 crown/gold, 2 fang/red, 3 glass/white): looks only */
   flame?: number;
 }
-export interface Setup { seed: string; seats: SeatSetup[] }
+/**
+ * `rules` picks the bots' tuning: missing = 1 (the original, frozen so settled matches still replay
+ * and verify), 2 = the rebalance in bot.ts. New matches use CURRENT_RULES.
+ */
+export interface Setup { seed: string; seats: SeatSetup[]; rules?: number }
 
 /**
  * What a player (or the server, for a bot) asks for this tick. Movement and aim are held until
@@ -58,6 +62,8 @@ export interface State {
   rng: Rng;
   over: boolean;
   winner: number | null;
+  /** the rules version (left unset for v1, so v1 states hash exactly as before) */
+  rules?: number;
   /** derived from the seed; left out of the state hash */
   arena: Arena;
 }
@@ -94,7 +100,7 @@ export function createState(setup: Setup): State {
       brain: { r: rngFrom(`emberfall|bot|${setup.seed}|${i}`), gx: CENTER, gz: CENTER },
     };
   });
-  const s: State = { seed: setup.seed, tick: 0, wardens, embers: [], nextEmber: 0, rng: rngFrom(`emberfall|sim|${setup.seed}`), over: false, winner: null, arena };
+  const s: State = { seed: setup.seed, tick: 0, wardens, embers: [], nextEmber: 0, rng: rngFrom(`emberfall|sim|${setup.seed}`), over: false, winner: null, arena, ...(setup.rules && setup.rules !== 1 ? { rules: setup.rules } : {}) };
   for (let k = 0; k < EMBERS_START; k++) spawnEmber(s);
   return s;
 }
@@ -172,7 +178,7 @@ export function step(s: State, given: (Input | null | undefined)[]): { events: S
     const g = given[i] ?? {};
     let takeover = false;
     if (!w.bot && g.takeover) { w.bot = 'normal'; takeover = true; }
-    if (w.bot) return { ...decide(viewFor(s, i), s.arena, w.bot, w.brain), takeover };
+    if (w.bot) return { ...decide(viewFor(s, i), s.arena, w.bot, w.brain, s.rules ?? 1), takeover };
     return { mx: g.mx, mz: g.mz, ax: g.ax, az: g.az, swing: g.swing, dash: g.dash };
   });
 
