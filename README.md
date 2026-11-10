@@ -134,7 +134,7 @@ contracts/emberfall  Rust near-sdk 5.29: EMBER (NEP-141), Wardens (NEP-171), sea
 pnpm --filter @emberfall/rules test   # 25: determinism, replay, tampering, combat, aim, the ember magnet, the dark, fog, bot blindness, log text, the shared seal vector, settlement
 pnpm contract:test                    # 16: shared hash vector, full match, forged openings, wrong seed, caps, transfers, agents, refunds, supply invariant
 pnpm typecheck
-pnpm sim 100 6                        # all-bot balance: match length, survivors, embers carried out, wins by skill
+pnpm sim 300 6                        # all-bot balance: match length, survivors, embers carried out, win rate per bot by skill (add 1 for the frozen rules v1)
 ```
 
 ## Deploying

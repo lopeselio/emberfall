@@ -80,6 +80,10 @@ Five Ashen Wardens, each a sub-account of the contract (`moth.`, `wick.`, `gloam
 | Sister Gloam | normal | stalks the glowing |
 | Brannoc | hard | hunts, dashes in, keeps to the light |
 
+**Balance and rules versions.** Each match records `setup.rules`. In rules v1 (matches with no `rules` field) "easy" was the most careful mind: it spotted danger earliest and never took an even fight, so in a last-one-standing arena it outlived everyone (`pnpm sim 300 6 1`: easy 28% wins per bot, normal 6%). Rules v2 (all new matches) makes skill mean competence instead: easy minds notice danger late, dither, swing less and cut it fine with the dark, while normal and hard minds back off when two rivals are in view. `pnpm sim 400 6` gives hard 31%, normal 15%, easy 12% per bot; with 4 bots 44% / 19% / 18%. v1 is frozen (pinned state hashes in `test/balance.test.ts`), so settled v1 matches still replay and `pnpm verify` still passes on them.
+
+Unnamed rivals join in a gentle order: Wick (normal), Moth (easy), Sister Gloam (normal), Brannoc (hard), Old Tallow (easy). One rival is a fair fight; Brannoc only joins from the fourth.
+
 ## Server, rooms and sign-in
 
 - Rooms over WebSocket (code of 4 letters, up to 6 seats, bots fill any seat). One authoritative 20 Hz loop per room; views at 10 Hz.
