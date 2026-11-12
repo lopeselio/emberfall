@@ -90,8 +90,8 @@ export function App() {
       <header className="top">
         <a className="logo" href="/" onClick={(e) => { e.preventDefault(); if (screen !== 'match') leave(); }}>EMBERFALL</a>
         <span className="grow" />
-        <button className="ghost small" onClick={() => setTutorial(() => () => setTutorialDone())}>How to play</button>
-        <button className="ghost small" onClick={() => { const m = !mute; setMuted(m); setMute(m); }} title="Sound (M)">{mute ? '♪ off' : '♪ on'}</button>
+        <button className="ghost small" onClick={() => setTutorial(() => () => setTutorialDone())} title="How to play" aria-label="How to play"><span className="wide">How to play</span><span className="narrow">?</span></button>
+        <button className="ghost small sound" onClick={() => { const m = !mute; setMuted(m); setMute(m); }} title="Sound (M)">{mute ? '♪ off' : '♪ on'}</button>
         <AccountBox account={account} setAccount={setAccount} />
       </header>
       {err && <div className="banner err" onClick={() => setErr('')}>{err}</div>}

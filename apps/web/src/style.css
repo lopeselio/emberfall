@@ -143,10 +143,15 @@ button:not(:disabled):active { transform: translateY(1px); }
 .dots i { width: 8px; height: 8px; border-radius: 2px; background: rgba(255, 255, 255, .2); }
 .dots i.on { background: var(--ember); }
 
+.top .narrow { display: none; }
+
 @media (max-width: 700px) {
   .top { padding: 8px 10px; gap: 6px; }
   .logo { font-size: 16px; }
-  .top button.ghost { display: none; }
+  /* How to play stays reachable on a phone (as "?"); the sound toggle gives way (M still works with a keyboard) */
+  .top button.sound { display: none; }
+  .top .wide { display: none; }
+  .top .narrow { display: inline; font-weight: 700; padding: 0 2px; }
   .stats { grid-template-columns: repeat(2, 1fr); }
   .grid { grid-template-columns: 1fr; }
   .hud-tl { top: 48px; left: 8px; padding: 6px 10px; }
