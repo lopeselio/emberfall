@@ -63,6 +63,7 @@ fn three_seats(c: &mut Emberfall) -> (String, String) {
             SeatIn { warden: None, name: "Guest".into() },
         ],
         5,
+        None,
     );
     (a, b)
 }
@@ -203,7 +204,7 @@ fn fees_need_approval() {
     ctx("alice.testnet", 1500);
     let a = c.mint_warden("Alice".into());
     ctx("ref.testnet", 1600);
-    c.create_match("m2".into(), sha_hex(SEED), vec![SeatIn { warden: Some(a), name: "Alice".into() }], 5);
+    c.create_match("m2".into(), sha_hex(SEED), vec![SeatIn { warden: Some(a), name: "Alice".into() }], 5, None);
 }
 
 #[test]
@@ -291,11 +292,11 @@ fn agents_spend_within_their_policy() {
     c.approve_fee(w.clone(), 5);
     c.offer_to_dark(w.clone(), 1);
     ctx("ref.testnet", 1700);
-    c.create_match("m3".into(), sha_hex(SEED), vec![SeatIn { warden: Some(w.clone()), name: "Moth".into() }], 5);
+    c.create_match("m3".into(), sha_hex(SEED), vec![SeatIn { warden: Some(w.clone()), name: "Moth".into() }], 5, None);
     assert_eq!(c.get_agent("moth.emberfall.testnet".parse().unwrap()).unwrap().spent_today, 6);
     // a second match today would go over the daily cap
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        c.create_match("m4".into(), sha_hex(SEED), vec![SeatIn { warden: Some(w.clone()), name: "Moth".into() }], 5);
+        c.create_match("m4".into(), sha_hex(SEED), vec![SeatIn { warden: Some(w.clone()), name: "Moth".into() }], 5, None);
     }));
     assert!(r.is_err());
 }
@@ -319,4 +320,74 @@ fn an_abandoned_match_is_refunded_after_two_hours() {
     assert_eq!(c.get_warden(a).unwrap().purse, STARTER);
     assert!(c.get_match("m1".into()).unwrap().refunded);
     invariant(&c, &["alice.testnet", "bob.testnet"]);
+}
+
+// ---------- rules versions: how many hearts an opening may show ----------
+
+/// A guest-only match (no fees) under `rules`, sealed with one chunk where seat 0 shows `hp` hearts.
+fn one_chunk_match(c: &mut Emberfall, id: &str, rules: Option<u8>, hp: u8) -> Vec<Vec<ChunkOpening>> {
+    ctx("ref.testnet", 1600);
+    let seats = vec![SeatIn { warden: None, name: "A".into() }, SeatIn { warden: None, name: "B".into() }];
+    c.create_match(id.into(), sha_hex(SEED), seats, 0, rules);
+    let chunks = vec![vec![op("", hp, 0, 0), op("", 0, 0, 0)]];
+    seal_all(c, id, &chunks);
+    chunks
+}
+
+#[test]
+fn a_match_remembers_its_rules_version() {
+    let mut c = contract();
+    one_chunk_match(&mut c, "v4", Some(4), 8);
+    one_chunk_match(&mut c, "old", None, 5);
+    assert_eq!(c.get_match_rules("v4".into()), Some(4));
+    assert_eq!(c.get_match_rules("old".into()), None);
+    assert_eq!(c.get_match_rules("nope".into()), None);
+    assert_eq!((max_hp(None), max_hp(Some(3)), max_hp(Some(4))), (HP, HP, HP_V4));
+}
+
+#[test]
+fn a_v4_match_opens_and_settles_with_eight_hearts() {
+    let mut c = contract();
+    let chunks = one_chunk_match(&mut c, "v4", Some(4), HP_V4);
+    ctx("ref.testnet", 3000);
+    c.open_chunks("v4".into(), SEED.into(), 0, chunks);
+    c.settle_match("v4".into());
+    let m = c.get_match("v4".into()).unwrap();
+    assert!(m.settled);
+    assert_eq!(m.finals[0].hp, 8);
+    assert_eq!(m.winner, Some(0));
+}
+
+#[test]
+#[should_panic(expected = "impossible state")]
+fn a_v4_match_refuses_more_than_eight_hearts() {
+    let mut c = contract();
+    let chunks = one_chunk_match(&mut c, "v4", Some(4), HP_V4 + 1);
+    ctx("ref.testnet", 3000);
+    c.open_chunks("v4".into(), SEED.into(), 0, chunks);
+}
+
+#[test]
+#[should_panic(expected = "impossible state")]
+fn a_match_without_a_version_still_refuses_more_than_five_hearts() {
+    let mut c = contract();
+    let chunks = one_chunk_match(&mut c, "old", None, 6);
+    ctx("ref.testnet", 3000);
+    c.open_chunks("old".into(), SEED.into(), 0, chunks);
+}
+
+#[test]
+#[should_panic(expected = "impossible state")]
+fn a_v3_match_still_refuses_more_than_five_hearts() {
+    let mut c = contract();
+    let chunks = one_chunk_match(&mut c, "v3", Some(3), 6);
+    ctx("ref.testnet", 3000);
+    c.open_chunks("v3".into(), SEED.into(), 0, chunks);
+}
+
+#[test]
+#[should_panic(expected = "unknown rules version")]
+fn an_unknown_rules_version_is_refused() {
+    let mut c = contract();
+    one_chunk_match(&mut c, "v9", Some(MAX_RULES + 1), 5);
 }
