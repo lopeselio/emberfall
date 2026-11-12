@@ -26,7 +26,9 @@ export interface RoomMsg { t: 'room'; code: string; phase: string; seats: RoomSe
 export interface StartMsg { t: 'start'; you: number; matchId: string; startsAt: number; difficulty: Difficulty; rules: number; seats: { name: string; kind: string; warden: string | null; flame: number }[]; ranked: boolean; fee: number; seedHash: string; tiles: Tile[]; maxTicks: number }
 export interface SnapMsg { t: 'snap'; v: View; ev: SimEvent[] }
 export interface ResultSeat { name: string; alive: boolean; hp: number; embers: number; kills: number; fellAt: number; warden: string | null; kind: string }
-export interface ResultsMsg { t: 'results'; matchId: string; winner: number | null; endTick: number; difficulty: Difficulty; bots: boolean; ranked: boolean; fee: number; seats: ResultSeat[]; expected: Settlement; chain: boolean; settled: boolean; error: string | null; txs: { what: string; hash: string; url: string }[] }
+export interface ResultsMsg { t: 'results'; matchId: string; winner: number | null; endTick: number; difficulty: Difficulty; bots: boolean; ranked: boolean; fee: number; seats: ResultSeat[]; expected: Settlement; chain: boolean; settled: boolean; error: string | null; txs: { what: string; hash: string; url: string }[];
+  /** how far the chain has got: chunks sealed and opened onchain, out of the match's chunks (older servers omit it) */
+  progress?: { chunks: number; sealed: number; opened: number } }
 export interface LineMsg { t: 'line'; who: string; text: string; signed: boolean }
 export type ServerMsg = RoomMsg | StartMsg | SnapMsg | ResultsMsg | LineMsg | { t: 'error'; msg: string } | { t: 'kicked' } | { t: 'hello'; account: string | null };
 
