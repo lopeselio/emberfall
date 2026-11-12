@@ -31,8 +31,8 @@ describe('rules versions', () => {
     for (const [seed, hash] of Object.entries(pins)) expect(stateHash(run(seed, 2))).toBe(hash);
   });
 
-  it('new matches use v3; v2 is a different game from v1', () => {
-    expect(CURRENT_RULES).toBe(3);
+  it('new matches use v4; v2 is a different game from v1', () => {
+    expect(CURRENT_RULES).toBe(4);
     const s = run('v1-pin-a', 2);
     expect(s.rules).toBe(2);
     expect(stateHash(s)).not.toBe('96f3cd50e3d385467e0ea952b7dfe39b3f187129eb0b4b7208b8a286dfb1f9e8');
