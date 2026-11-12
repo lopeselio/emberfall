@@ -37,7 +37,12 @@ pub const BURN_MAX: u64 = 75;
 pub const MATCH_MINT_CAP: u64 = 40;
 pub const DAILY_MINT_CAP: u64 = 2000;
 pub const GLASS_EMBERS: u32 = 8;
+/// hearts a Warden starts with under rules v1–v3
 pub const HP: u8 = 5;
+/// hearts under rules v4 and later (packages/rules HP_V4)
+pub const HP_V4: u8 = 8;
+/// the newest rules version this contract accepts at create_match
+pub const MAX_RULES: u8 = 4;
 pub const ARENA_UNITS: i32 = 4000;
 pub const MAX_SEATS: usize = 6;
 /// 3:00 at 60 ticks per chunk
@@ -69,6 +74,23 @@ enum Key {
     Balances,
     Board,
     Recent,
+    /// a match's rules version, stored apart from `Match` so the stored layout of matches is unchanged
+    MatchRules,
+}
+
+/// The most hearts any seat can have in a match of this rules version. Matches created without a
+/// version (before v4 existed) are v1–v3: 5.
+pub fn max_hp(rules: Option<u8>) -> u8 {
+    match rules {
+        Some(r) if r >= 4 => HP_V4,
+        _ => HP,
+    }
+}
+
+fn rules_key(match_id: &str) -> Vec<u8> {
+    let mut k = near_sdk::borsh::to_vec(&Key::MatchRules).expect("key");
+    k.extend_from_slice(match_id.as_bytes());
+    k
 }
 
 // ---------- data ----------
@@ -495,8 +517,11 @@ impl Emberfall {
     // ---------- matches ----------
 
     /// Opens a match: commits the seed's hash and takes each Warden seat's entry fee into the pot.
-    pub fn create_match(&mut self, match_id: String, seed_hash: String, seats: Vec<SeatIn>, fee: u64) {
+    /// `rules` is the packages/rules version the match runs (omitted = v1–v3); it sets how many hearts
+    /// an opened chunk may show.
+    pub fn create_match(&mut self, match_id: String, seed_hash: String, seats: Vec<SeatIn>, fee: u64, rules: Option<u8>) {
         self.only_referee();
+        require!(rules.map_or(true, |r| (1..=MAX_RULES).contains(&r)), "unknown rules version");
         require!(!match_id.is_empty() && match_id.len() <= 64 && !match_id.contains('|'), "bad match id");
         require!(self.matches.get(&match_id).is_none(), "match exists");
         require!(valid_hex64(&seed_hash), "seed hash must be 64 lowercase hex");
@@ -516,6 +541,9 @@ impl Emberfall {
         }
         Event::MatchCreated { match_id: match_id.clone(), seed_hash: seed_hash.clone(), wardens: seats.iter().map(|s| s.warden.clone()).collect(), fee, pot }.emit();
         let head = head_zero(&match_id);
+        if let Some(r) = rules {
+            env::storage_write(&rules_key(&match_id), &[r]);
+        }
         self.matches.insert(
             match_id,
             Match {
@@ -563,6 +591,7 @@ impl Emberfall {
     /// are open the re-folded head must equal the sealed one.
     pub fn open_chunks(&mut self, match_id: String, seed: String, from_chunk: u32, chunks: Vec<Vec<ChunkOpening>>) {
         self.only_referee();
+        let hp_cap = max_hp(self.get_match_rules(match_id.clone()));
         let m = self.matches.get_mut(&match_id).unwrap_or_else(|| env::panic_str("no such match"));
         require!(!m.settled && !m.refunded, "match closed");
         require!(sha_hex(&seed) == m.seed_hash, "seed does not match its hash");
@@ -575,7 +604,7 @@ impl Emberfall {
             let mut seals = Vec::with_capacity(n);
             for (seat, o) in openings.iter().enumerate() {
                 require!(valid_inputs(&o.inputs), "bad inputs");
-                require!(o.hp <= HP && o.x >= 0 && o.z >= 0 && o.x <= ARENA_UNITS && o.z <= ARENA_UNITS, "impossible state");
+                require!(o.hp <= hp_cap && o.x >= 0 && o.z >= 0 && o.x <= ARENA_UNITS && o.z <= ARENA_UNITS, "impossible state");
                 seals.push(seal_of(&match_id, &seed, seat, chunk, o));
             }
             m.open_head = next_head(&m.open_head, chunk, &seals);
@@ -713,6 +742,10 @@ impl Emberfall {
 
     pub fn get_match(&self, match_id: String) -> Option<Match> {
         self.matches.get(&match_id).cloned()
+    }
+    /// The rules version a match was created with, or None for matches created without one (v1–v3).
+    pub fn get_match_rules(&self, match_id: String) -> Option<u8> {
+        env::storage_read(&rules_key(&match_id)).and_then(|v| v.first().copied())
     }
     pub fn get_warden(&self, warden: String) -> Option<Warden> {
         self.wardens.get(&warden).cloned()
