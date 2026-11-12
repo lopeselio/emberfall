@@ -5,7 +5,7 @@
 //
 //   pnpm verify <matchId> [--host https://…] [--rpc https://…] [--contract emberfall.testnet]
 import {
-  CHUNK, foldHead, logFromOpenings, replay, sealOf, settle, sha256Hex, stateHash, type Applied, type Opening, type Settlement, type Setup,
+  CHUNK, maxHp, foldHead, logFromOpenings, replay, sealOf, settle, sha256Hex, stateHash, type Applied, type Opening, type Settlement, type Setup,
 } from '@emberfall/rules';
 
 const args = process.argv.slice(2);
@@ -51,6 +51,11 @@ console.log(`rules v${b.setup.rules ?? 1}${(b.setup.rules ?? 1) >= 3 ? `, bots o
 check(!!c, 'the contract has this match');
 if (!c) process.exit(1);
 
+// matches created since v4 carry their rules version onchain; older ones (none stored) are v1–v3
+const onchainRules = await viewCall<number | null>('get_match_rules', { match_id: id }).catch(() => null);
+const rules = b.setup.rules ?? 1;
+check(onchainRules === null ? rules <= 3 : onchainRules === rules, `the rules version matches the one committed at create_match`, onchainRules === null ? '(none stored: a v1–v3 match)' : `v${onchainRules}`);
+check(b.chunks.every((seats) => seats.every((o) => o.hp <= maxHp(rules))), `no seat ever shows more than ${maxHp(rules)} hearts`);
 check(sha256Hex(b.seed) === c.seed_hash && c.seed_hash === b.seedHash, 'the revealed seed matches the hash committed at create_match', c.seed_hash.slice(0, 16));
 check(b.setup.seed === b.seed, 'the match was set up from that seed (arena, embers, salts)');
 const rebuilt = b.chunks.map((seats, k) => seats.map((o, seat) => sealOf(id, b.seed!, seat, k, o)));
