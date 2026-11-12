@@ -81,6 +81,8 @@ export class ChainMatch {
       const r = await call(config.referee, 'create_match', {
         match_id: this.id, seed_hash: this.rec.seedHash, fee: this.fee,
         seats: this.seats.map((s) => ({ warden: s.warden ?? null, name: s.name })),
+        // the contract caps the hearts an opening may show by this (8 from v4, else 5)
+        rules: this.setup.rules,
       }, 60);
       this.rec.txs.push({ what: 'create_match', hash: r.tx });
       saveMatch(this.rec);
