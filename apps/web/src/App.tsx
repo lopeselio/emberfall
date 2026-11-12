@@ -163,7 +163,12 @@ function Title({ cfg, account, play, create, join }: { cfg: ServerConfig | null;
       <section className="hero">
         <h1>EMBERFALL</h1>
         <div className="tag">a torchlit battle arena on NEAR</div>
-        <p>A night battle in ruined voxel halls. You see only what your torch lights; so does everyone else. Gather embers, fight, and stay inside the light while <b>the dark closes in</b>. Every three seconds the match is <b>sealed onchain</b>, and anyone can replay it afterwards.</p>
+        <p className="lede">A night battle in ruined voxel halls, for 2 to 6 Wardens. Last one standing wins.</p>
+        <ul className="pillars">
+          <li><span className="glyph torch" aria-hidden="true" /><b>Your torch is all you see</b><small>and everyone else is just as blind: the server never sends what your light doesn't reach</small></li>
+          <li><span className="glyph ring" aria-hidden="true" /><b>The dark closes in</b><small>gather embers, fight with swing and dash, and stay inside the shrinking light</small></li>
+          <li><span className="glyph seal" aria-hidden="true" /><b>Sealed onchain every 3 s</b><small>the contract rebuilds every seal before it pays out; anyone can replay the match</small></li>
+        </ul>
         <label className="name">Your name <input value={name} maxLength={20} placeholder="Warden" onChange={(e) => setNameState(e.target.value)} onBlur={keep} /></label>
         <div className="row mid">
           <button className="big" onClick={() => { keep(); sfx('click'); play(bots, difficulty); }}>Fight the Ashen Wardens</button>

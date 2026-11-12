@@ -51,6 +51,16 @@ code { font: 12px ui-monospace, monospace; background: rgba(255, 255, 255, .07);
 button:not(:disabled):hover { filter: brightness(1.12); }
 button:not(:disabled):active { transform: translateY(1px); }
 .hero p { color: #d9d0ee; max-width: 620px; margin: 10px auto 16px; }
+.hero .lede { font-size: 17px; margin-bottom: 12px; }
+/* three things to know, each with a small voxel glyph drawn in CSS */
+.pillars { list-style: none; padding: 0; margin: 0 auto 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 680px; text-align: left; }
+.pillars li { background: rgba(20, 14, 34, .72); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: 30px 1fr; column-gap: 10px; align-items: start; backdrop-filter: blur(4px); }
+.pillars b { font: 700 14px 'Pixelify Sans', monospace; color: var(--gold); letter-spacing: .5px; }
+.pillars small { grid-column: 2; color: #bfb5d8; font-size: 12.5px; line-height: 1.35; }
+.glyph { grid-row: span 2; width: 26px; height: 26px; margin-top: 2px; image-rendering: pixelated; }
+.glyph.torch { background: linear-gradient(#ffe08a, #ff8a3a) 9px 0 / 8px 10px no-repeat, linear-gradient(#6b4a2e, #3a2717) 11px 10px / 4px 16px no-repeat; filter: drop-shadow(0 0 6px rgba(255, 150, 50, .9)); }
+.glyph.ring { border-radius: 50%; border: 4px solid #8a4fd8; box-shadow: 0 0 10px rgba(150, 80, 230, .8), inset 0 0 6px rgba(150, 80, 230, .6); background: radial-gradient(circle, #ffb347 0 3px, transparent 4px); }
+.glyph.seal { background: conic-gradient(from 45deg, #6dffb0 0 25%, #2c8a63 0 50%, #6dffb0 0 75%, #2c8a63 0) 3px 3px / 20px 20px no-repeat; border: 2px solid #6dffb0; border-radius: 4px; box-shadow: 0 0 8px rgba(109, 255, 176, .5); }
 .name { display: inline-flex; gap: 10px; align-items: center; color: var(--dim); font-size: 13px; }
 .code { width: 86px; text-align: center; letter-spacing: 3px; text-transform: uppercase; }
 .grid { max-width: 1060px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
@@ -156,6 +166,8 @@ button:not(:disabled):active { transform: translateY(1px); }
   .top .wide { display: none; }
   .top .narrow { display: inline; font-weight: 700; padding: 0 2px; }
   .stats { grid-template-columns: repeat(2, 1fr); }
+  .pillars { grid-template-columns: 1fr; gap: 6px; }
+  .pillars li { padding: 8px 10px; }
   .grid { grid-template-columns: 1fr; }
   /* portrait HUD: stats top-left, clock top-right, minimap under the stats, feed under the clock; nothing overlaps */
   .hud-tl { top: 48px; left: 8px; width: calc(50% - 12px); padding: 6px 10px; }
