@@ -18,6 +18,8 @@ import { CENTER, decide, rngFrom, type Arena, type Brain, type Tile, type View }
 
 const URL_ = process.argv[2] ?? process.env.E2E_URL ?? 'http://localhost:8831';
 const CONTRACT = process.env.CONTRACT_ID ?? 'emberfall.testnet';
+/** E2E_RPC overrides the testnet RPC (a public endpoint can rate-limit one IP) */
+const RPC = process.env.E2E_RPC ?? 'https://rpc.testnet.fastnear.com';
 const stamp = Date.now().toString(36);
 const step = (s: string): void => console.log(`\n▶ ${s}`);
 const ok = (s: string): void => console.log(`  ✓ ${s}`);
@@ -37,7 +39,7 @@ async function fundedSubAccount(label: string): Promise<{ id: string; key: KeyPa
   const fk = JSON.parse(readFileSync(credFile(funder), 'utf8')).private_key as KeyPairString;
   const kp = KeyPair.fromRandom('ed25519');
   const sub = `${label}.${funder}`;
-  const f = new Account(funder, new JsonRpcProvider({ url: 'https://rpc.testnet.fastnear.com' }), KeyPairSigner.fromSecretKey(fk));
+  const f = new Account(funder, new JsonRpcProvider({ url: RPC }), KeyPairSigner.fromSecretKey(fk));
   await f.signAndSendTransaction({ receiverId: sub, actions: [actions.createAccount(), actions.transfer(300_000_000_000_000_000_000_000n), actions.addFullAccessKey(kp.getPublicKey())], waitUntil: 'EXECUTED_OPTIMISTIC' });
   writeFileSync(credFile(sub), JSON.stringify({ account_id: sub, public_key: kp.getPublicKey().toString(), private_key: kp.toString() }), { mode: 0o600 });
   return { id: sub, key: kp.toString() as KeyPairString };
@@ -57,7 +59,7 @@ try { key = faucetAccount(id); } catch {
   ({ id, key } = await fundedSubAccount(`e2e-${stamp}`));
   console.log(`  (the faucet is rate-limited: using ${id}, funded by its parent account)`);
 }
-const provider = new JsonRpcProvider({ url: 'https://rpc.testnet.fastnear.com' });
+const provider = new JsonRpcProvider({ url: RPC });
 const me = new Account(id, provider, KeyPairSigner.fromSecretKey(key));
 await sleep(3000);
 ok('account funded');
