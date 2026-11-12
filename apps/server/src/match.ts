@@ -124,8 +124,9 @@ export class ChainMatch {
     return this.queue;
   }
 
-  /** The match is over: reveal the seed, open every chunk onchain, settle. Results come back at once. */
-  finish(s: State): { settled: Promise<void> } {
+  /** The match is over: reveal the seed, open every chunk onchain, settle. Results come back at once;
+   *  `progress` runs after each transaction so players can watch the opening (it takes a minute or two). */
+  finish(s: State, progress: () => void = () => {}): { settled: Promise<void> } {
     const finals = s.wardens.map((w) => ({ hp: w.hp, embers: w.embers, kills: w.kills }));
     this.rec.seed = this.seed;
     this.rec.setup = this.setup;
@@ -136,8 +137,9 @@ export class ChainMatch {
     saveMatch(this.rec);
     const settled = (async () => {
       await this.flush();
+      progress();
       if (!(await this.created)) return;
-      for (let tries = 0; this.pending.length && tries < 3; tries++) await this.flush();
+      for (let tries = 0; this.pending.length && tries < 3; tries++) { await this.flush(); progress(); }
       try {
         const BATCH = 10;
         for (let from = this.rec.openedOnchain; from < this.rec.chunks.length; from = this.rec.openedOnchain) {
@@ -146,6 +148,7 @@ export class ChainMatch {
           this.rec.openedOnchain += chunks.length;
           this.rec.txs.push({ what: `open chunks ${from}–${from + chunks.length - 1}`, hash: r.tx });
           saveMatch(this.rec);
+          progress();
         }
         const r = await call(config.referee, 'settle_match', { match_id: this.id }, 100);
         this.rec.txs.push({ what: 'settle_match', hash: r.tx });

@@ -225,20 +225,22 @@ export class Room {
     this.phase = 'results';
     const s = this.state;
     const match = this.match;
-    const { settled } = match.finish(s);
     const msg = (): unknown => ({
       t: 'results', matchId: match.id, winner: s.winner, endTick: s.tick, difficulty: match.setup.difficulty ?? 'normal', bots: match.rec.seats.some((x) => x.kind === 'bot'), ranked: match.rec.ranked, fee: match.rec.fee,
       seats: s.wardens.map((w, i) => ({ name: w.name, alive: w.alive, hp: w.hp, embers: w.embers, kills: w.kills, fellAt: w.fellAt, warden: match.rec.seats[i].warden, kind: match.rec.seats[i].kind })),
       expected: match.rec.expected, chain: config.chainEnabled, settled: match.rec.settled, error: match.rec.error ?? null,
       txs: match.rec.txs.map((x) => ({ ...x, url: explorerTx(x.hash) })),
+      progress: { chunks: match.rec.chunks.length, sealed: match.rec.sealedOnchain, opened: match.rec.openedOnchain },
     });
+    const resend = (): void => {
+      this.results = msg();
+      if (this.match === match) this.members.forEach((m) => send(m.ws, this.results));
+    };
+    const { settled } = match.finish(s, resend);
     this.results = msg();
     this.broadcastRoom();
     this.members.forEach((m) => send(m.ws, this.results));
-    void settled.then(() => {
-      this.results = msg();
-      if (this.match === match) this.members.forEach((m) => send(m.ws, this.results));
-    });
+    void settled.then(resend);
     this.cleanup = setTimeout(() => { if (this.phase === 'results') rooms.delete(this.code); }, 15 * 60_000);
     if (!this.members.some((m) => m.ws)) rooms.delete(this.code);
   }
