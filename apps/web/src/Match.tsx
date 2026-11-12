@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  CENTER, CHUNK, DARK_START, DASH_CD, GLOW_MAX, HP, SIZE, SWING_CD, TICK_HZ, TILE, VIEW, createState, eventsFor, foldHead, logFromOpenings,
+  CENTER, CHUNK, DASH_CD, GLOW_MAX, SIZE, SWING_CD, TICK_HZ, TILE, VIEW, createState, eventsFor, foldHead, logFromOpenings,
   sealOf, step, viewFor, type Input, type Opening, type SimEvent, type Setup, type View,
+  darkTimes, maxHp,
 } from '@emberfall/rules';
 import type { LineMsg, ResultsMsg, SnapMsg, StartMsg } from './api.ts';
 import { CLOAKS, type World } from './scene.ts';
@@ -35,6 +36,9 @@ export function Match({ world, start, results, lines, send, subscribe, again, le
   const mini = useRef<HTMLCanvasElement>(null);
   const seen = useRef(new Uint8Array(SIZE * SIZE));
   const names = start.seats.map((s) => s.name);
+  // hearts and the dark's timing depend on the match's rules version (v4: 8 hearts, a slower dark)
+  const HP = maxHp(start.rules);
+  const [darkStart, darkEnd] = darkTimes(start.rules);
   // what we last told the server
   const sent = useRef({ mx: 0, mz: 0, ax: 0, az: 0 });
   const lastBeat = useRef(0);
@@ -49,7 +53,7 @@ export function Match({ world, start, results, lines, send, subscribe, again, le
   };
 
   useEffect(() => {
-    world.startMatch(start.tiles, start.you, names, start.seats.map((s) => s.flame));
+    world.startMatch(start.tiles, start.you, names, start.seats.map((s) => s.flame), maxHp(start.rules));
     document.title = 'Emberfall · in the dark';
     startDrone();
     let feedId = 0;
@@ -70,7 +74,7 @@ export function Match({ world, start, results, lines, send, subscribe, again, le
       world.update(s.v, s.ev);
       aliveRef.current = s.v.alive + (s.v.me.alive ? 0 : 1);
       setV(s.v);
-      droneLevel(Math.min(1, Math.max(0, (s.v.tick - DARK_START) / 2400)));
+      droneLevel(Math.min(1, Math.max(0, (s.v.tick - darkStart) / (darkEnd - darkStart))));
       const me = s.v.me;
       const d2 = (me.x - CENTER) ** 2 + (me.z - CENTER) ** 2;
       if (me.alive && (d2 > s.v.darkR ** 2 || me.hp <= 1) && Date.now() - lastBeat.current > 900) { lastBeat.current = Date.now(); sfx('heart'); }
@@ -162,11 +166,12 @@ export function Match({ world, start, results, lines, send, subscribe, again, le
   const countdown = Math.ceil((start.startsAt - now) / 1000);
   const me = v?.me;
   const left = v ? start.maxTicks - v.tick : start.maxTicks;
-  const darkIn = v ? DARK_START - v.tick : DARK_START;
+  const darkIn = v ? darkStart - v.tick : darkStart;
   const distC = me ? Math.hypot(me.x - CENTER, me.z - CENTER) : 0;
   const outside = !!(me && me.alive && v && distC > v.darkR);
   const near = !!(me && me.alive && v && !outside && v.darkR - distC < 250 && darkIn <= 0);
-  const low = !!(me && me.alive && me.hp <= 2);
+  // low: 2 of 5 hearts, 3 of 8
+  const low = !!(me && me.alive && me.hp * 5 <= 2 * HP);
 
   if (replay) return <Replay r={replay} world={world} start={start} close={() => setReplay(null)} />;
 
@@ -369,7 +374,7 @@ function Replay({ r, world, start, close }: { r: ReplayState; world: World; star
   const [k, setK] = useState(0);
   const [speed, setSpeed] = useState(2);
   useEffect(() => {
-    world.startMatch(start.tiles, start.you, start.seats.map((s) => s.name), start.seats.map((s) => s.flame));
+    world.startMatch(start.tiles, start.you, start.seats.map((s) => s.name), start.seats.map((s) => s.flame), maxHp(start.rules));
     world.setInput(0, 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
