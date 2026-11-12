@@ -36,7 +36,7 @@ export function App() {
 
   useEffect(() => {
     void api<ServerConfig>('/config').then((c) => { setCfg(c); setContract(c.contract); }).catch(() => undefined);
-    void api<{ accountId: string }>('/me').then((m) => setAccount(m.accountId)).catch(() => setAccount(null));
+    void api<{ accountId: string } | null>('/me').then((m) => setAccount(m?.accountId ?? null)).catch(() => setAccount(null));
     const key = (e: KeyboardEvent): void => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       if (e.key === 'm' || e.key === 'M') { const m = !isMuted(); setMuted(m); setMute(m); }
@@ -233,7 +233,7 @@ function WardenPanel({ account }: { account: string | null }) {
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
   const [name, setNm] = useState(getName() || 'Warden');
-  const load = useCallback(() => { if (account) void api<Me>('/me').then(setMe).catch(() => setMe(null)); else setMe(null); }, [account]);
+  const load = useCallback(() => { if (account) void api<Me | null>('/me').then(setMe).catch(() => setMe(null)); else setMe(null); }, [account]);
   useEffect(load, [load]);
   const act = async (what: string, method: string, args: object): Promise<void> => {
     setBusy(what); setErr('');
