@@ -174,3 +174,9 @@ button:not(:disabled):active { transform: translateY(1px); }
   .minimap { width: 88px; height: 88px; }
   .hud-tc .clock { font-size: 20px; }
 }
+
+/* fingers need bigger targets than a mouse */
+@media (pointer: coarse) {
+  .seg button { min-height: 40px; min-width: 72px; }
+  .top button, .tut button { min-height: 40px; min-width: 40px; }
+}
