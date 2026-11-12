@@ -350,21 +350,34 @@ interface ReplayState {
   chunks: number;
 }
 
+// public testnet RPCs that answer browsers (CORS) without a key; rpc.testnet.near.org is deprecated and fastnear
+// rate-limits hard (its 429s carry no CORS header, so a browser can't even read them), so it goes last
+const RPCS = ['https://near-testnet.drpc.org', 'https://testnet-rpc.intea.rs', 'https://rpc.testnet.fastnear.com'];
+
+/** The chain head the contract stores for a match, read straight from a public RPC (not through our server):
+ *  each RPC in turn, three rounds with backoff. null if none answered. */
+async function chainHeadOf(contract: string, id: string): Promise<string | null> {
+  const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: contract, method_name: 'get_match', args_base64: btoa(JSON.stringify({ match_id: id })) } });
+  for (let round = 0; round < 3; round++) {
+    for (const url of RPCS) {
+      try {
+        const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(10_000) });
+        const j = (await res.json()) as { result?: { result?: number[] } };
+        if (j.result?.result) return (JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result))) as { head: string } | null)?.head ?? null;
+      } catch { /* blocked, offline or rate-limited: try the next one */ }
+    }
+    await new Promise((r) => setTimeout(r, 800 * 2 ** round));
+  }
+  return null;
+}
+
 async function loadReplay(id: string, seat: number): Promise<ReplayState> {
   const b = (await (await fetch(`/api/match/${id}`)).json()) as { seed?: string; setup?: Setup; chunks: Opening[][]; seals: string[][]; contract: string };
   if (!b.seed || !b.setup) throw new Error('the log opens once the match is over');
   const rebuilt = b.chunks.map((seats, k) => seats.map((o, s) => sealOf(id, b.seed!, s, k, o)));
   const sealsOk = JSON.stringify(rebuilt) === JSON.stringify(b.seals);
   const head = foldHead(id, rebuilt);
-  let chainHead: string | null = null;
-  try {
-    const res = await fetch('https://rpc.testnet.fastnear.com', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: b.contract, method_name: 'get_match', args_base64: btoa(JSON.stringify({ match_id: id })) } }),
-    });
-    const j = (await res.json()) as { result?: { result: number[] } };
-    if (j.result) chainHead = (JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result))) as { head: string } | null)?.head ?? null;
-  } catch { /* offline or blocked: the local check still stands */ }
+  const chainHead = await chainHeadOf(b.contract, id);
   const log = logFromOpenings(b.chunks);
   const byTick = new Map<number, typeof log>();
   for (const e of log) byTick.set(e.t, [...(byTick.get(e.t) ?? []), e]);
@@ -409,7 +422,7 @@ function Replay({ r, world, start, close }: { r: ReplayState; world: World; star
       </div>
       <div className="replay-bar card small">
         <p>{r.sealsOk ? '✓' : '✗'} the opened log rebuilds all {r.chunks} chunks of seals
-          {r.chainHead === null ? ' (couldn’t reach the chain from here)' : r.chainHead === r.head ? ' · ✓ it folds into the contract’s chain head' : ' · ✗ the contract’s chain head differs'}</p>
+          {r.chainHead === null ? ' (no public NEAR RPC answered from this browser; `pnpm verify` checks the head too)' : r.chainHead === r.head ? ' · ✓ it folds into the contract’s chain head' : ' · ✗ the contract’s chain head differs'}</p>
         <input type="range" min={0} max={r.frames.length - 1} value={Math.min(k, r.frames.length - 1)} onChange={(e) => setK(Number(e.target.value))} />
         <div className="row mid">
           {[1, 2, 4].map((x) => <button key={x} className={speed === x ? 'small' : 'ghost small'} onClick={() => setSpeed(x)}>{x}×</button>)}
