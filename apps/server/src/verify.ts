@@ -4,6 +4,8 @@
 // and recomputes the settlement.
 //
 //   pnpm verify <matchId> [--host https://…] [--rpc https://…] [--contract emberfall.testnet]
+// --host defaults to the hosted game (https://emberfall.lopeselio.online; VERIFY_HOST overrides it).
+// Without --rpc it tries several public testnet RPCs in turn, retrying rate limits with backoff.
 import {
   CHUNK, maxHp, foldHead, logFromOpenings, replay, sealOf, settle, sha256Hex, stateHash, type Applied, type Opening, type Settlement, type Setup,
 } from '@emberfall/rules';
@@ -11,8 +13,9 @@ import {
 const args = process.argv.slice(2);
 const opt = (k: string, d: string): string => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
 const id = args.find((a, i) => !a.startsWith('--') && !args[i - 1]?.startsWith('--'));
-const HOST = opt('host', process.env.VERIFY_HOST ?? 'http://localhost:8831');
-const RPC = opt('rpc', 'https://rpc.testnet.fastnear.com');
+const HOST = opt('host', process.env.VERIFY_HOST ?? 'https://emberfall.lopeselio.online').replace(/\/+$/, '');
+// public testnet RPCs (docs.near.org/api/rpc/providers); rpc.testnet.near.org is deprecated, fastnear rate-limits hard
+const RPCS = args.includes('--rpc') ? [opt('rpc', '')] : ['https://near-testnet.drpc.org', 'https://testnet-rpc.intea.rs', 'https://rpc.testnet.fastnear.com'];
 const CONTRACT = opt('contract', process.env.CONTRACT_ID ?? 'emberfall.testnet');
 if (!id) { console.error('usage: pnpm verify <matchId> [--host URL] [--rpc URL] [--contract ID]'); process.exit(2); }
 
@@ -26,14 +29,31 @@ interface ChainMatch {
   seed: string | null; finals: { hp: number; embers: number; kills: number }[]; settled: boolean; winner: number | null; burned: number; prize: number; minted: number[]; capped: boolean;
 }
 
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+const fail = (msg: string): never => { console.error(msg); process.exit(2); };
+
+/** a contract view call; each RPC in turn, three rounds with backoff, so one rate-limited endpoint doesn't stop a check */
 async function viewCall<T>(method: string, a: object): Promise<T> {
-  const res = await fetch(RPC, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: CONTRACT, method_name: method, args_base64: Buffer.from(JSON.stringify(a)).toString('base64') } }),
-  });
-  const j = (await res.json()) as { result?: { result: number[] }; error?: unknown };
-  if (!j.result) throw new Error(`RPC: ${JSON.stringify(j.error).slice(0, 200)}`);
-  return JSON.parse(Buffer.from(j.result.result).toString('utf8')) as T;
+  const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: CONTRACT, method_name: method, args_base64: Buffer.from(JSON.stringify(a)).toString('base64') } });
+  const errors: string[] = [];
+  for (let round = 0; round < 3; round++) {
+    for (const rpc of RPCS) {
+      try {
+        const res = await fetch(rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(15_000) });
+        const j = (await res.json().catch(() => ({}))) as { result?: { result?: number[]; error?: string }; error?: { message?: string; cause?: { name?: string } } };
+        if (j.result?.result) return JSON.parse(Buffer.from(j.result.result).toString('utf8')) as T;
+        const why = j.result?.error ?? j.error?.cause?.name ?? j.error?.message ?? `HTTP ${res.status}`;
+        // the contract itself refused (e.g. a method this deployment lacks): no other RPC will answer differently
+        if (j.result?.error || j.error?.cause?.name === 'CONTRACT_EXECUTION_ERROR') throw Object.assign(new Error(`${method}: ${why}`), { final: true });
+        errors.push(`${new URL(rpc).host}: ${why}`);
+      } catch (e) {
+        if ((e as { final?: boolean }).final) throw e;
+        errors.push(`${new URL(rpc).host}: ${(e as Error).message}`);
+      }
+    }
+    await sleep(1000 * 2 ** round);
+  }
+  return fail(`couldn't read ${CONTRACT}.${method} from any testnet RPC (${errors.slice(-RPCS.length).join('; ')}).\nTry again in a minute, or pass --rpc <url>.`);
 }
 
 let failed = 0;
@@ -42,8 +62,9 @@ const check = (ok: boolean, what: string, detail = ''): void => {
   console.log(`${ok ? '✓' : '✗'} ${what}${detail ? `  ${detail}` : ''}`);
 };
 
-const b = (await (await fetch(`${HOST}/api/match/${id}`)).json()) as Bundle & { error?: string };
-if (b.error) { console.error(b.error); process.exit(2); }
+const res = await fetch(`${HOST}/api/match/${id}`).catch((e: Error) => fail(`couldn't reach ${HOST} (${(e.cause as { code?: string } | undefined)?.code ?? e.message}); pass --host <url> for another server`));
+const b = (await res.json().catch(() => fail(`${HOST} didn't answer with a match bundle (HTTP ${res.status})`))) as Bundle & { error?: string };
+if (b.error) fail(`${b.error} on ${HOST}${HOST.includes('localhost') ? '' : ' (a match played on a local server is only there: pass --host http://localhost:8831)'}`);
 if (!b.over || !b.seed || !b.setup) { console.error('that match is not over yet'); process.exit(2); }
 const c = await viewCall<ChainMatch | null>('get_match', { match_id: id });
 console.log(`match ${id} on ${CONTRACT}: ${b.seats.map((s) => s.name).join(', ')}`);
