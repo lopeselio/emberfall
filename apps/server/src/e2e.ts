@@ -18,8 +18,8 @@ import { CENTER, decide, rngFrom, type Arena, type Brain, type Tile, type View }
 
 const URL_ = process.argv[2] ?? process.env.E2E_URL ?? 'http://localhost:8831';
 const CONTRACT = process.env.CONTRACT_ID ?? 'emberfall.testnet';
-/** E2E_RPC overrides the testnet RPC (a public endpoint can rate-limit one IP) */
-const RPC = process.env.E2E_RPC ?? 'https://rpc.testnet.fastnear.com';
+/** E2E_RPC overrides the testnet RPC (a public endpoint can rate-limit one IP; fastnear does today) */
+const RPC = process.env.E2E_RPC ?? 'https://near-testnet.drpc.org';
 const stamp = Date.now().toString(36);
 const step = (s: string): void => console.log(`\n▶ ${s}`);
 const ok = (s: string): void => console.log(`  ✓ ${s}`);
