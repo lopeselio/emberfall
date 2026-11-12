@@ -6,7 +6,7 @@ import { CHUNK, logFromOpenings, replay, stateHash, type Applied, type Opening, 
 // Real matches played and settled on the hosted server, saved from /api/match/<id> before any later
 // change to the bots. Each must replay, from its opened log alone, to the state hash the server
 // recorded and through every sealed chunk state: that is what `pnpm verify` checks for a settled match.
-// One is rules v1 (no `rules` field), one is rules v2.
+// One per rules version: v1 (no `rules` field), v2, v3 (a ranked e2e match).
 interface Fixture { id: string; setup: Setup; chunks: Opening[][]; endTick: number; winner: number | null; stateHash: string }
 
 const dir = join(import.meta.dirname, 'fixtures');
@@ -17,6 +17,7 @@ describe('settled matches still replay', () => {
     const versions = new Set(fixtures.map((f) => f.setup.rules ?? 1));
     expect(versions.has(1)).toBe(true);
     expect(versions.has(2)).toBe(true);
+    expect(versions.has(3)).toBe(true);
   });
 
   for (const f of fixtures) {
