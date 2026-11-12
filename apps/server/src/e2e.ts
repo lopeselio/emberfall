@@ -172,5 +172,5 @@ const out = (await me.signAndSendTransaction({ receiverId: CONTRACT, actions: [a
 if (out.status.Failure) throw new Error(`nft_transfer: ${JSON.stringify(out.status.Failure).slice(0, 200)}`);
 const moved = await view<{ owner_id: string; purse: number; record: { matches: number } }>('get_warden', { warden });
 ok(`${warden} now belongs to ${moved.owner_id} with ${moved.purse} EMBER and ${moved.record.matches} match(es) on its record`);
-console.log(`\nall player steps passed. Check the match yourself:\n  pnpm verify ${matchId}${URL_ === 'http://localhost:8831' ? '' : ` --host ${URL_}`}`);
+console.log(`\nall player steps passed. Check the match yourself:\n  pnpm verify ${matchId} --host ${URL_}`);
 process.exit(0);
