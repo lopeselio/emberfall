@@ -1,6 +1,6 @@
 import { CENTER, type Arena } from './arena.ts';
 import { dir8, steer } from './bot.ts';
-import { SWING_RANGE } from './constants.ts';
+import { HP, SWING_RANGE } from './constants.ts';
 import { chance, int, rngFrom, type Rng } from './rng.ts';
 import type { Input, View } from './sim.ts';
 
@@ -15,6 +15,8 @@ export interface HumanMind {
   /** recent views, newest last: it acts on the one `lag` ticks old */
   seen: View[];
   lag: number;
+  /** a full heart bar under the match's rules */
+  maxHp: number;
   /** current ember it is walking to (kept until it vanishes) */
   ex: number; ez: number;
   gx: number; gz: number;
@@ -36,10 +38,12 @@ export const AVERAGE = {
   margin: 200,
   /** how far it will chase a Warden: with embers in sight, and without */
   near: 300, chase: 420,
+  /** it runs at or below this share of a full heart bar (2 of 5) when the other Warden has more */
+  runAt: 40,
 };
 
-export function humanMind(seed: string, seat: number): HumanMind {
-  return { r: rngFrom(`emberfall|human|${seed}|${seat}`), seen: [], lag: 5, ex: -1, ez: -1, gx: CENTER, gz: CENTER };
+export function humanMind(seed: string, seat: number, maxHp = HP): HumanMind {
+  return { r: rngFrom(`emberfall|human|${seed}|${seat}`), seen: [], lag: 5, maxHp, ex: -1, ez: -1, gx: CENTER, gz: CENTER };
 }
 
 const RING: [number, number][] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
@@ -72,7 +76,7 @@ export function humanDecide(now: View, a: Arena, h: HumanMind, k = AVERAGE): Inp
   for (const o of v.others) if (!foe || d2(o.x, o.z, me.x, me.z) < d2(foe.x, foe.z, me.x, me.z)) foe = o;
   if (foe) {
     const dist2 = d2(foe.x, foe.z, me.x, me.z);
-    const losing = me.hp <= 2 && foe.hp > me.hp;
+    const losing = me.hp * 100 <= k.runAt * h.maxHp && foe.hp > me.hp;
     if (losing && dist2 < 500 * 500) {
       const [mx, mz] = dir8(me.x - foe.x + Math.trunc((CENTER - me.x) / 3), me.z - foe.z + Math.trunc((CENTER - me.z) / 3));
       return go(mx, mz, { dash: chance(r, k.dash * 2) });
