@@ -145,8 +145,8 @@ function buildWarden(seat: number, flame: number): Body {
   return { g, legL, legR, arm, flame: fl, flameTip: tip, body, mats: [cloak, dark, skin, boot], tag, tagKey: '', flameColor: fc };
 }
 
-function drawTag(b: Body, name: string, hp: number, embers: number, me: boolean): void {
-  const key = `${name}|${hp}|${embers}|${me}`;
+function drawTag(b: Body, name: string, hp: number, max: number, embers: number, me: boolean): void {
+  const key = `${name}|${hp}|${max}|${embers}|${me}`;
   if (b.tagKey === key) return;
   b.tagKey = key;
   const cv = document.createElement('canvas');
@@ -158,7 +158,9 @@ function drawTag(b: Body, name: string, hp: number, embers: number, me: boolean)
   x.fillText(name, 129, 28);
   x.fillStyle = me ? '#ffd08a' : '#f1e9ff';
   x.fillText(name, 128, 26);
-  for (let k = 0; k < 5; k++) { x.fillStyle = k < hp ? '#ff4d5a' : 'rgba(255,255,255,.18)'; x.fillRect(128 - 50 + k * 20, 40, 16, 12); }
+  // one pip per heart the match's rules give (5 before v4, 8 from v4)
+  const left = 128 - (max * 20 - 4) / 2;
+  for (let k = 0; k < max; k++) { x.fillStyle = k < hp ? '#ff4d5a' : 'rgba(255,255,255,.18)'; x.fillRect(left + k * 20, 40, 16, 12); }
   if (embers > 0) { x.fillStyle = '#ffb347'; x.font = '600 20px "Pixelify Sans", monospace'; x.fillText(`◆${embers}`, 128, 70); }
   const old = (b.tag.material as THREE.SpriteMaterial).map;
   const tex = new THREE.CanvasTexture(cv);
@@ -208,6 +210,8 @@ export class World {
   private camLook = new THREE.Vector3(20, 0, 20);
   private shake = 0;
   private you = -1;
+  /** a full heart bar under this match's rules */
+  private maxHp = 5;
   private flames: number[] = [];
   private names: string[] = [];
   private darkR = 21;
@@ -407,8 +411,9 @@ export class World {
 
   // ---------- match state from the server ----------
 
-  startMatch(tiles: Tile[], you: number, names: string[], flames: number[]): void {
+  startMatch(tiles: Tile[], you: number, names: string[], flames: number[], maxHp = 5): void {
     this.mode = 'match';
+    this.maxHp = maxHp;
     this.setTiles(tiles);
     this.you = you;
     this.names = names;
@@ -450,7 +455,7 @@ export class World {
     sh.body.g.visible = w.alive;
     sh.alive = w.alive;
     if (w.grace > 0) sh.flash = Math.max(sh.flash, 0.3);
-    drawTag(sh.body, w.name, w.hp, w.embers, w.seat === this.you);
+    drawTag(sh.body, w.name, w.hp, this.maxHp, w.embers, w.seat === this.you);
   }
 
   /** A new fogged view from the server. */
