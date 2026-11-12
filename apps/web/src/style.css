@@ -157,10 +157,20 @@ button:not(:disabled):active { transform: translateY(1px); }
   .top .narrow { display: inline; font-weight: 700; padding: 0 2px; }
   .stats { grid-template-columns: repeat(2, 1fr); }
   .grid { grid-template-columns: 1fr; }
-  .hud-tl { top: 48px; left: 8px; padding: 6px 10px; }
-  .hud-tc { top: 112px; min-width: 0; padding: 4px 10px; }
-  .feed { top: 48px; right: 8px; font-size: 11px; }
-  .minimap { width: 96px; height: 96px; top: 150px; left: 8px; bottom: auto; }
+  /* portrait HUD: stats top-left, clock top-right, minimap under the stats, feed under the clock; nothing overlaps */
+  .hud-tl { top: 48px; left: 8px; width: calc(50% - 12px); padding: 6px 10px; }
+  .hud-tl .dim.small { font-size: 11px; }
+  .hud-tc { top: 48px; left: auto; right: 8px; transform: none; width: calc(50% - 12px); min-width: 0; padding: 6px 10px; text-align: center; font-size: 12px; }
+  .hud-tc .clock { font-size: 22px; }
+  .feed { top: 136px; right: 8px; width: calc(50% - 12px); font-size: 11px; }
+  .minimap { width: 96px; height: 96px; top: 148px; left: 8px; bottom: auto; }
+  .stick-zone { top: 250px; }
   .cds { display: none; }
   .txs { columns: 1; }
+}
+
+/* short landscape phones: a smaller minimap that clears the touch stick */
+@media (max-height: 500px) and (orientation: landscape) {
+  .minimap { width: 88px; height: 88px; }
+  .hud-tc .clock { font-size: 20px; }
 }
