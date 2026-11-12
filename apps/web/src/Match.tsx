@@ -295,6 +295,15 @@ function placements(r: ResultsMsg): number[] {
   return place;
 }
 
+/** What the chain is doing after the bell: the last seals, then the openings in batches, then settlement (a minute or two). */
+function settling(r: ResultsMsg): string {
+  const p = r.progress;
+  if (!p || !p.chunks) return 'Opening the sealed log and settling onchain…';
+  if (p.sealed < p.chunks) return `Posting the last seals onchain (${p.sealed}/${p.chunks} chunks sealed)…`;
+  if (p.opened < p.chunks) return `Opening the sealed log onchain: ${p.opened}/${p.chunks} chunks opened and checked by the contract…`;
+  return `All ${p.chunks} chunks opened; settling the match…`;
+}
+
 function Results({ r, you, again, leave, account, watch, err }: { r: ResultsMsg; you: number; again: () => void; leave: () => void; account: string | null; watch: () => void; err: string }) {
   const won = r.winner === you;
   const e = r.expected;
@@ -321,7 +330,7 @@ function Results({ r, you, again, leave, account, watch, err }: { r: ResultsMsg;
       </tbody></table>
       <p className="small">{r.ranked ? <>Pot {pot} EMBER: <b className="burn">{e.burned} burned</b> ({e.fallen} fell), <b className="mint">{e.prize}</b> to the winner. </> : 'Unranked match. '}
         Embers carried out by living Wardens become EMBER{account ? '' : ' (sign in to own a Warden that earns them)'}.</p>
-      <p className="small">{!r.chain ? <span className="dim">Offline mode (CHAIN=0): nothing was written onchain.</span> : r.settled ? <b className="mint">✓ Opened and settled onchain: the contract rebuilt every seal.</b> : r.error ? <span className="err">Chain: {r.error}</span> : <span className="dim">Opening the sealed log and settling onchain…</span>}</p>
+      <p className="small">{!r.chain ? <span className="dim">Offline mode (CHAIN=0): nothing was written onchain.</span> : r.settled ? <b className="mint">✓ Opened and settled onchain: the contract rebuilt every seal.</b> : r.error ? <span className="err">Chain: {r.error}</span> : <span className="dim">{settling(r)}</span>}</p>
       {r.txs.length > 0 && <details><summary className="small">{r.txs.length} transactions</summary><ul className="txs">{r.txs.map((t) => <li key={t.hash}><a href={t.url} target="_blank" rel="noreferrer">{t.what}</a></li>)}</ul></details>}
       <p className="small dim">Proof: <a href={`/api/match/${r.matchId}`} target="_blank" rel="noreferrer">opened log (JSON)</a> · from a terminal: <code>pnpm verify {r.matchId}</code></p>
       {err && <p className="err small">{err}</p>}
