@@ -1,4 +1,4 @@
-import { CURRENT_RULES, TICK_HZ } from './constants.ts';
+import { CURRENT_RULES, TICK_HZ, maxHp } from './constants.ts';
 import { humanDecide, humanMind } from './human.ts';
 import { createState, step, viewFor, type Skill, type State } from './sim.ts';
 
@@ -34,7 +34,7 @@ for (let m = 0; m < n; m++) {
   const me = m % seats; // rotate the spawn
   let b = 0;
   const s = createState({ seed, rules, difficulty, seats: Array.from({ length: seats }, (_, i) => (i === me ? { name: 'human' } : { name: `bot${i}`, bot: FILL[b++] })) });
-  const mind = humanMind(seed, me);
+  const mind = humanMind(seed, me, maxHp(rules));
   let end = '';
   while (!s.over) {
     const given = s.wardens.map((_, i) => (i === me ? humanDecide(viewFor(s, i), s.arena, mind) : null));
