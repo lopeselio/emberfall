@@ -34,7 +34,7 @@ With no NEAR keys, run `CHAIN=0 pnpm start`: everything plays the same, but noth
    It prints the match's rules version (new matches are v4) and checks it against the one committed onchain at `create_match` (older matches have none stored and must be v1–v3), checks no seat ever shows more hearts than that version allows, checks the seed against the committed hash, rebuilds every seal and the chain head and compares them with the contract, replays the match tick by tick (re-making every bot decision from that bot's own fogged view), checks every 3-second state, and recomputes the burn, prize and mint. Example from a live testnet match below.
 6. **Multiplayer.** **Create a room**, send the 4-letter code or the `?room=CODE` link; friends **Join** with it (up to 6, guests welcome). The host can add Ashen Wardens; everyone presses **Ready**. **Play again** keeps the room together.
 7. **Sign in with NEAR** (top right; NEAR Connect: Meteor, Intear, HOT, MyNearWallet, …). The wallet signs "Sign in to <host>" (NEP-413). In *Your Warden*, **Mint my Warden** (free, gasless: a NEP-366 meta-transaction paid by `emberfall-relay.testnet`) gives you an NFT with a 30 EMBER purse; **Allow 5 EMBER entry fee** makes your matches **ranked**. Your card is the NFT's own onchain SVG, regenerated from its purse, record and loot; a Cinder Crown (a win), Shade Fang (a kill) or Lantern Glass (8+ embers carried out) changes your torch's flame colour in game.
-8. **Headless:** `pnpm e2e` (server at http://localhost:8831) creates a fresh faucet account, signs in, mints and approves gaslessly, plays a ranked match over the WebSocket steered only by the fogged views it receives, waits for settlement, and transfers the Warden to a second account to show the purse goes with it.
+8. **Headless:** `pnpm e2e` (server at http://localhost:8831; `E2E_RPC=<url>` if the default public RPC rate-limits you) creates a fresh faucet account, signs in, mints and approves gaslessly, plays a ranked match over the WebSocket steered only by the fogged views it receives, waits for settlement, and transfers the Warden to a second account to show the purse goes with it.
 
 ### A live run (testnet, 9 Nov 2026)
 
@@ -76,31 +76,36 @@ all player steps passed. Check the match yourself:
   pnpm verify m-mw99tirm-1f7383
 ```
 
-`pnpm verify` on that match:
+`pnpm verify` on a rules v4 match (12 Nov 2026, a ranked `pnpm e2e` match after the contract upgrade):
 
 ```
-match m-mw99tirm-1f7383 on emberfall.testnet: E2E Warden, Brannoc, Sister Gloam, Wick
+match m-mwdenmko-86cbe0 on emberfall.testnet: E2E Warden, Wick, Moth, Sister Gloam
+rules v4, bots on normal
 
 ✓ the contract has this match
-✓ the revealed seed matches the hash committed at create_match  3ce05b319590b52b
+✓ the rules version matches the one committed at create_match  v4
+✓ no seat ever shows more than 8 hearts
+✓ the revealed seed matches the hash committed at create_match  fdf1dc288aa41bfc
 ✓ the match was set up from that seed (arena, embers, salts)
-✓ every opening rebuilds its seal (21 chunks × 4 seats)
-✓ the seals fold into the contract's chain head  6218af70686eca22
+✓ every opening rebuilds its seal (43 chunks × 4 seats)
+✓ the seals fold into the contract's chain head  fd3c58c472b822f5
 ✓ the contract opened every chunk and re-folded the same head
-✓ every bot input is what that bot decides from its own fogged view  1796 bot inputs
+✓ every bot input is what that bot decides from its own fogged view  1482 bot inputs
 ✓ every logged human input replays as logged
-✓ the replay passes through every sealed chunk state (21 chunks)
-✓ the replay ends where the server's match ended (tick 1250)  121aa8a34e02754d
+✓ the replay passes through every sealed chunk state (43 chunks)
+✓ the replay ends where the server's match ended (tick 2521)  3303cf339d53aed6
 ✓ the final states match what the contract opened
 ✓ the contract settled it
-✓ winner: Brannoc
+✓ winner: E2E Warden
 ✓ pot 20 EMBER: 9 burned (3 fell), 11 to the winner
-✓ minted for embers carried out: [0, 10, 0, 0]
+✓ minted for embers carried out: [40, 0, 0, 0] (capped)
 
-1 AI line(s), 0 signed by the NEAR AI enclave
+1 AI line(s), 1 signed by the NEAR AI enclave (signer 0xfdbd7952498b333206f360d71d97a1e0961e8ddf)
 
 all checks passed
 ```
+
+A match from before v4 (no version stored onchain) prints `✓ the rules version matches the one committed at create_match  (none stored: a v1–v3 match)` and `✓ no seat ever shows more than 5 hearts`.
 
 ## How it works
 
