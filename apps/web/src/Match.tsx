@@ -193,8 +193,8 @@ export function Match({ world, start, results, lines, send, subscribe, again, le
       </div>
       <canvas ref={mini} className="minimap" width={150} height={150} title="What your torch has revealed" />
       {!touchy && !results && <div className="keys dim small">WASD move · mouse aims · click / Space swing · right-click / Shift dash · gamepad works too</div>}
-      {me && !results && <Cooldowns me={me} />}
-      {touchy && !results && <Touch push={push} world={world} />}
+      {me && !results && !touchy && <Cooldowns me={me} />}
+      {touchy && !results && <Touch push={push} world={world} me={me} />}
       {countdown > 0 && <div className="center big-count" key={countdown}>{countdown}</div>}
       {outside && <div className="vignette dark" />}
       {low && !outside && <div className="vignette low" />}
@@ -214,7 +214,9 @@ function Cooldowns({ me }: { me: View['me'] }) {
   );
 }
 
-function Touch({ push, world }: { push: (m: Partial<Input>) => void; world: World }) {
+/** On a touch screen the round Swing/Dash buttons are the cooldown display too (a fill rising as they recharge), so the desktop cooldown tiles stay hidden. */
+function Touch({ push, world, me }: { push: (m: Partial<Input>) => void; world: World; me: View['me'] | undefined }) {
+  const cd = (left: number, full: number): React.CSSProperties => ({ ['--cd' as string]: `${Math.round((left / full) * 100)}%` });
   const base = useRef<{ x: number; y: number; id: number } | null>(null);
   const [knob, setKnob] = useState<{ x: number; y: number; dx: number; dy: number } | null>(null);
   return (
@@ -238,8 +240,8 @@ function Touch({ push, world }: { push: (m: Partial<Input>) => void; world: Worl
         {knob && <div className="stick" style={{ left: knob.x - 50, top: knob.y - 50 }}><i style={{ transform: `translate(${knob.dx}px, ${knob.dy}px)` }} /></div>}
       </div>
       <div className="tbtns">
-        <button className="tbtn dash" onPointerDown={(e) => { e.preventDefault(); navigator.vibrate?.(15); push({ dash: true }); }}>Dash</button>
-        <button className="tbtn swing" onPointerDown={(e) => { e.preventDefault(); navigator.vibrate?.(25); push({ swing: true }); }}>Swing</button>
+        <button className={`tbtn dash${me?.dashCd ? ' cooling' : ''}`} style={cd(me?.dashCd ?? 0, DASH_CD)} onPointerDown={(e) => { e.preventDefault(); navigator.vibrate?.(15); push({ dash: true }); }}>Dash</button>
+        <button className={`tbtn swing${me?.swingCd ? ' cooling' : ''}`} style={cd(me?.swingCd ?? 0, SWING_CD)} onPointerDown={(e) => { e.preventDefault(); navigator.vibrate?.(25); push({ swing: true }); }}>Swing</button>
       </div>
     </>
   );
