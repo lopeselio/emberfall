@@ -71,7 +71,8 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       });
     }
     if (p === '/api/me') {
-      if (!me) return json(res, 401, { error: 'not signed in' });
+      // a guest is a normal state, not an error: 200 null keeps every guest page load free of a red 401 in the console
+      if (!me) return json(res, 200, null);
       const warden = config.chainEnabled ? await view<string | null>('warden_of', { account_id: me }).catch(() => null) : null;
       const raw = warden ? await view('get_warden', { warden }).catch(() => null) : null;
       const token = warden ? await view('nft_token', { token_id: warden }).catch(() => null) : null;

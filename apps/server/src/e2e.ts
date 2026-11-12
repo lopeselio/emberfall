@@ -97,7 +97,9 @@ const kp = KeyPair.fromString(key);
 const message = `Sign in to ${host}`;
 const sig = kp.sign(nep413Hash(message, Buffer.from(nonce, 'hex'), host));
 await api('/ba/near/verify', { signedMessage: { accountId: id, publicKey: kp.getPublicKey().toString(), signature: Buffer.from(sig.signature).toString('base64') }, message, recipient: host, nonce, accountId: id });
-ok(`session cookie set; the server sees ${(await api<{ accountId: string }>('/me')).accountId}`);
+const seen = await api<{ accountId: string } | null>('/me');
+if (!seen) throw new Error('/me: the server sees no session after sign-in');
+ok(`session cookie set; the server sees ${seen.accountId}`);
 
 step('mint a Warden and approve the entry fee, gasless (NEP-366 meta-transactions through the relayer)');
 ok(`mint_warden ${await relay('mint_warden', { name: 'E2E Warden' })}`);
