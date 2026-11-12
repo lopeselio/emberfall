@@ -1,9 +1,9 @@
 import { CENTER, SIZE, TILE, blocked, lineOfSight, makeArena, tileAt, FLOOR, type Arena } from './arena.ts';
 import { decide, type Brain } from './bot.ts';
 import {
-  CHUNK, DARK_DMG_EVERY, DARK_END, DARK_R0, DARK_R1, DARK_START, DASH_CD, DASH_MULT, DASH_TICKS, DIAG, EMBER_EVERY, EMBER_LIMIT,
-  EMBER_UNTIL, EMBERS_START, GLOW_MAX, MAGNET, MAGNET_PULL, GLOW_PER_EMBER, GRACE, HP, KNOCK, MAX_SEATS, MAX_TICKS, PICKUP, RADIUS, SPEED, SWING_CD,
-  SWING_RANGE, VIEW,
+  CHUNK, DARK_DMG_EVERY, DARK_R0, DARK_R1, DASH_CD, DASH_MULT, DASH_TICKS, DIAG, EMBER_EVERY, EMBER_LIMIT,
+  EMBER_UNTIL, EMBERS_START, GLOW_MAX, MAGNET, MAGNET_PULL, GLOW_PER_EMBER, GRACE, KNOCK, MAX_SEATS, MAX_TICKS, PICKUP, RADIUS, SPEED, SWING_CD,
+  SWING_RANGE, VIEW, darkTimes, maxHp,
 } from './constants.ts';
 import { canonical, sha256Hex } from './hash.ts';
 import { int, rngFrom, type Rng } from './rng.ts';
@@ -23,7 +23,8 @@ export interface SeatSetup {
 /**
  * `rules` picks the bots' tuning: missing = 1 (the original, frozen so settled matches still replay
  * and verify), 2 = the rebalance in bot.ts, 3 = an explicit difficulty and minds with human limits
- * (reaction lag, aim error). v1 and v2 are frozen too. New matches use CURRENT_RULES.
+ * (reaction lag, aim error), 4 = v3's minds with more hearts (HP_V4), so matches last longer.
+ * v1–v3 are frozen too. New matches use CURRENT_RULES.
  */
 export interface Setup {
   seed: string; seats: SeatSetup[]; rules?: number;
@@ -87,22 +88,25 @@ const sign = (n: number): number => (n > 0 ? 1 : n < 0 ? -1 : 0);
 const clampDir = (n: unknown, d: number): number => (n === -1 || n === 0 || n === 1 ? n : d);
 const d2 = (ax: number, az: number, bx: number, bz: number): number => (ax - bx) * (ax - bx) + (az - bz) * (az - bz);
 
-export function darkRadius(tick: number): number {
-  if (tick < DARK_START) return DARK_R0;
-  if (tick >= DARK_END) return DARK_R1;
-  return DARK_R0 - Math.trunc(((DARK_R0 - DARK_R1) * (tick - DARK_START)) / (DARK_END - DARK_START));
+/** The light's radius at a tick (the timing depends on the rules version; missing = v1). */
+export function darkRadius(tick: number, rules?: number): number {
+  const [start, end] = darkTimes(rules);
+  if (tick < start) return DARK_R0;
+  if (tick >= end) return DARK_R1;
+  return DARK_R0 - Math.trunc(((DARK_R0 - DARK_R1) * (tick - start)) / (end - start));
 }
 
-export const insideDark = (x: number, z: number, tick: number): boolean => d2(x, z, CENTER, CENTER) <= darkRadius(tick) ** 2;
+export const insideDark = (x: number, z: number, tick: number, rules?: number): boolean => d2(x, z, CENTER, CENTER) <= darkRadius(tick, rules) ** 2;
 
 export function createState(setup: Setup): State {
   if (setup.seats.length < 1 || setup.seats.length > MAX_SEATS) throw new Error(`1–${MAX_SEATS} seats`);
   const arena = makeArena(setup.seed);
+  const hp = maxHp(setup.rules);
   const wardens: Warden[] = setup.seats.map((seat, i) => {
     const p = arena.spawns[i];
     return {
       name: seat.name, x: p.x, z: p.z, fx: sign(CENTER - p.x), fz: sign(CENTER - p.z), mx: 0, mz: 0, ax: 0, az: 0,
-      hp: HP, embers: 0, kills: 0, swingCd: 0, swingT: 0, dashCd: 0, dashT: 0, grace: 0, alive: true, fellAt: -1,
+      hp, embers: 0, kills: 0, swingCd: 0, swingT: 0, dashCd: 0, dashT: 0, grace: 0, alive: true, fellAt: -1,
       bot: seat.bot ?? null, flame: Math.max(0, Math.min(3, seat.flame ?? 0)),
       brain: { r: rngFrom(`emberfall|bot|${setup.seed}|${i}`), gx: CENTER, gz: CENTER, ...((setup.rules ?? 1) >= 3 ? { foe: -1, seen: 0, trail: [] } : {}) },
     };
@@ -115,7 +119,7 @@ export function createState(setup: Setup): State {
 
 function spawnEmber(s: State): void {
   if (s.embers.length >= EMBER_LIMIT) return;
-  const r = darkRadius(s.tick) - 80;
+  const r = darkRadius(s.tick, s.rules) - 80;
   for (let tries = 0; tries < 24; tries++) {
     const tx = int(s.rng, 1, SIZE - 2), tz = int(s.rng, 1, SIZE - 2);
     if (tileAt(s.arena, tx, tz) !== FLOOR) continue;
@@ -242,7 +246,7 @@ export function step(s: State, given: (Input | null | undefined)[]): { events: S
   // 5. the dark bites once a second
   if (s.tick > 0 && s.tick % DARK_DMG_EVERY === 0) {
     s.wardens.forEach((w, i) => {
-      if (!w.alive || insideDark(w.x, w.z, s.tick)) return;
+      if (!w.alive || insideDark(w.x, w.z, s.tick, s.rules)) return;
       w.hp--;
       ev.push({ t: 'burn', w: i, x: w.x, z: w.z });
       if (w.hp <= 0) fall(s, i, -1, ev);
@@ -331,7 +335,7 @@ export function viewFor(s: State, i: number): View {
     me: { ...wv(me, i), swingCd: me.swingCd, dashCd: me.dashCd, kills: me.kills },
     others,
     embers: s.embers.filter((e) => canSee(s, i, e.x, e.z)),
-    darkR: darkRadius(s.tick), alive: aliveCount(s), over: s.over, winner: s.winner,
+    darkR: darkRadius(s.tick, s.rules), alive: aliveCount(s), over: s.over, winner: s.winner,
   };
 }
 

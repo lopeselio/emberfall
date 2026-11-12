@@ -1,5 +1,5 @@
 import { CENTER, SIZE, TILE, FLOOR, blocked, tileAt, type Arena } from './arena.ts';
-import { DARK_END, DARK_R0, DARK_R1, DARK_START, RADIUS, SWING_RANGE } from './constants.ts';
+import { DARK_R0, DARK_R1, DARK_START, RADIUS, SWING_RANGE, darkTimes } from './constants.ts';
 import { chance, int, type Rng } from './rng.ts';
 import type { Input, Skill, View } from './sim.ts';
 
@@ -46,10 +46,11 @@ const sign = (n: number): number => (n > 0 ? 1 : n < 0 ? -1 : 0);
 const d2 = (ax: number, az: number, bx: number, bz: number): number => (ax - bx) * (ax - bx) + (az - bz) * (az - bz);
 
 // same formula as the sim's (kept here so this file doesn't import sim at runtime)
-function darkAt(tick: number): number {
-  if (tick < DARK_START) return DARK_R0;
-  if (tick >= DARK_END) return DARK_R1;
-  return DARK_R0 - Math.trunc(((DARK_R0 - DARK_R1) * (tick - DARK_START)) / (DARK_END - DARK_START));
+function darkAt(tick: number, rules = 1): number {
+  const [start, end] = darkTimes(rules);
+  if (tick < start) return DARK_R0;
+  if (tick >= end) return DARK_R1;
+  return DARK_R0 - Math.trunc(((DARK_R0 - DARK_R1) * (tick - start)) / (end - start));
 }
 
 /** Eight-way direction towards (dx, dz). */
@@ -82,7 +83,7 @@ function newGoal(a: Arena, r: Rng, within: number, b: Brain): void {
 
 /** One tick's decision for a bot. Mutates only the bot's own brain. */
 export function decide(v: View, a: Arena, skill: Skill, brain: Brain, rules = 1, difficulty: Skill = 'normal'): Input {
-  if (rules >= 3) return decideV3(v, a, skill, brain, difficulty);
+  if (rules >= 3) return decideV3(v, a, skill, brain, difficulty, rules);
   const me = v.me;
   if (!me.alive) return {};
   const t = (TEMPERS[rules] ?? V1)[skill];
@@ -166,6 +167,17 @@ export const LEVELS: Record<Skill, Level> = {
   hard: { react: 3, aimMiss: 5, swing: 80, dash: 14, notice: 650, engage: 560, calm: 1800, fightHp: 2, even: true, retreat: 2, margin: 320, idle: 0, wary: 2 },
 };
 
+/**
+ * Rules v4: v3's minds with 8 hearts and a slower dark. A longer fight lets the better fighter win more
+ * surely, so easy and normal rivals react, swing and aim a little better to keep the same win rates, and
+ * every rival stays calm (gathers rather than chases) about twice as long, as the light closes later.
+ */
+export const LEVELS_V4: Record<Skill, Level> = {
+  easy: { ...LEVELS.easy, react: 4, aimMiss: 20, swing: 50, idle: 4, margin: 180, calm: 4800 },
+  normal: { ...LEVELS.normal, aimMiss: 10, swing: 70, calm: 4400 },
+  hard: { ...LEVELS.hard, calm: 3600 },
+};
+
 /** A persona's style on top of the level: Moth and Old Tallow gather, Brannoc brawls. */
 const STYLE: Record<Skill, { engage: number; calm: number }> = {
   easy: { engage: 80, calm: 120 },
@@ -175,10 +187,10 @@ const STYLE: Record<Skill, { engage: number; calm: number }> = {
 
 const RING: [number, number][] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
 
-function decideV3(v: View, a: Arena, persona: Skill, b: Brain, difficulty: Skill): Input {
+function decideV3(v: View, a: Arena, persona: Skill, b: Brain, difficulty: Skill, rules: number): Input {
   const me = v.me;
   if (!me.alive) return {};
-  const L = LEVELS[difficulty] ?? LEVELS.normal;
+  const L = (rules >= 4 ? LEVELS_V4 : LEVELS)[difficulty] ?? LEVELS.normal;
   const st = STYLE[persona] ?? STYLE.normal;
   const engageR = Math.trunc((L.engage * st.engage) / 100);
   const calm = Math.trunc((L.calm * st.calm) / 100);
@@ -205,7 +217,7 @@ function decideV3(v: View, a: Arena, persona: Skill, b: Brain, difficulty: Skill
   if (L.idle && chance(r, L.idle)) return {};
 
   // 1. stay ahead of the dark
-  const safe = Math.max(DARK_R1 - 120, darkAt(v.tick + 120) - L.margin);
+  const safe = Math.max(DARK_R1 - 120, darkAt(v.tick + 120, rules) - L.margin);
   if (d2(me.x, me.z, CENTER, CENTER) > safe * safe) {
     const [mx, mz] = dir8(CENTER - me.x, CENTER - me.z);
     return out(mx, mz, { dash: me.dashCd === 0 && chance(r, L.dash * 2) });

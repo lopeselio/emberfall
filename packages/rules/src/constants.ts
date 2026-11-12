@@ -10,7 +10,12 @@ export const MAX_TICKS = 3600;
 export const CHUNK = 60;
 export const MAX_SEATS = 6;
 
+/** hearts each Warden starts with, rules v1–v3 */
 export const HP = 5;
+/** rules v4: more hearts, so fights take longer to finish and a match runs ~2.5 min instead of ~1.6 */
+export const HP_V4 = 8;
+/** the most hearts a Warden can have under a rules version (missing = v1) */
+export const maxHp = (rules?: number): number => ((rules ?? 1) >= 4 ? HP_V4 : HP);
 export const SPEED = 18;
 export const DIAG = 13;
 export const RADIUS = 30;
@@ -44,6 +49,11 @@ export const DARK_R1 = 350;
 export const DARK_START = 400;
 export const DARK_END = 2800;
 export const DARK_DMG_EVERY = 20;
+/** rules v4: the light holds for 1:10 and closes by 2:55, so the longer fights end around the bell */
+export const DARK_START_V4 = 1400;
+export const DARK_END_V4 = 3500;
+/** when the dark starts and stops closing under a rules version (missing = v1) */
+export const darkTimes = (rules?: number): [number, number] => ((rules ?? 1) >= 4 ? [DARK_START_V4, DARK_END_V4] : [DARK_START, DARK_END]);
 
 /** EMBER economy (the contract uses the same numbers) */
 export const STARTER = 30;
