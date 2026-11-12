@@ -332,7 +332,7 @@ function Results({ r, you, again, leave, account, watch, err }: { r: ResultsMsg;
         Embers carried out by living Wardens become EMBER{account ? '' : ' (sign in to own a Warden that earns them)'}.</p>
       <p className="small">{!r.chain ? <span className="dim">Offline mode (CHAIN=0): nothing was written onchain.</span> : r.settled ? <b className="mint">✓ Opened and settled onchain: the contract rebuilt every seal.</b> : r.error ? <span className="err">Chain: {r.error}</span> : <span className="dim">{settling(r)}</span>}</p>
       {r.txs.length > 0 && <details><summary className="small">{r.txs.length} transactions</summary><ul className="txs">{r.txs.map((t) => <li key={t.hash}><a href={t.url} target="_blank" rel="noreferrer">{t.what}</a></li>)}</ul></details>}
-      <p className="small dim">Proof: <a href={`/api/match/${r.matchId}`} target="_blank" rel="noreferrer">opened log (JSON)</a> · from a terminal: <code>pnpm verify {r.matchId}</code></p>
+      <p className="small dim">Proof: <a href={`/api/match/${r.matchId}`} target="_blank" rel="noreferrer">opened log (JSON)</a> · from a terminal (in a clone of the repo): <code>pnpm verify {r.matchId} --host {location.origin}</code></p>
       {err && <p className="err small">{err}</p>}
       <div className="row mid"><button onClick={again}>Play again</button><button className="ghost" onClick={watch}>Watch the replay</button><button className="ghost" onClick={leave}>Back to the title</button></div>
     </div>
