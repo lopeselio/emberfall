@@ -138,6 +138,8 @@ function Title({ cfg, account, play, create, join }: { cfg: ServerConfig | null;
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get('room')?.toUpperCase() ?? '');
   const [supply, setSupply] = useState<Supply | null>(null);
   const [board, setBoard] = useState<BoardRow[]>([]);
+  // only Wardens with something on their record: a fresh Warden (or a headless test account's) with no win and nothing carried out isn't a ranking
+  const ranked = board.filter((r) => r.wins > 0 || r.embers_out > 0);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [acts, setActs] = useState<AgentAct[]>([]);
   const keep = (): void => setName(name.trim().slice(0, 20));
@@ -195,8 +197,8 @@ function Title({ cfg, account, play, create, join }: { cfg: ServerConfig | null;
         </section>
         <section className="panel">
           <h2>Wardens' ledger</h2>
-          {board.length === 0 ? <p className="dim">No settled matches yet.</p> : (
-            <table className="tbl"><tbody>{board.slice(0, 10).map((r, i) => <tr key={r.warden}><td>{i + 1}</td><td>{r.name}</td><td>{r.wins} W</td><td>{r.embers_out} carried out</td></tr>)}</tbody></table>
+          {ranked.length === 0 ? <p className="dim">No settled matches yet.</p> : (
+            <table className="tbl"><tbody>{ranked.slice(0, 10).map((r, i) => <tr key={r.warden}><td>{i + 1}</td><td>{r.name}{r.name === 'E2E Warden' && <small className="dim"> · test run</small>}</td><td>{r.wins} W</td><td>{r.embers_out} carried out</td></tr>)}</tbody></table>
           )}
         </section>
         <section className="panel">
