@@ -1,6 +1,6 @@
 # Emberfall
 
-A torchlit battle arena on NEAR, in voxels. Every Warden carries a torch and **sees only what it lights**. Gather embers, fight with a swing and a dash, and stay inside the light while **the dark closes in**. The last Warden standing wins; if the clock runs out, the living Warden carrying the most embers does.
+A torchlit battle arena on NEAR, in voxels. Every Warden carries a torch and **sees only what it lights**. Gather embers, fight with a swing and a dash (every Warden has 8 hearts), and stay inside the light while **the dark closes in**. A match lasts about two and a half minutes (at most 3:00). The last Warden standing wins; if the clock runs out, the living Warden carrying the most embers does.
 
 The fog is kept honest without a TEE: the server commits a hash of the match seed onchain before the first tick, sends each player only what their torch reveals, and **seals every player's inputs and position onchain every 3 seconds**. At the end the seed and the whole log are opened, and the contract rebuilds every seal before it burns or pays a single EMBER. `pnpm verify <matchId>` replays the match from that log.
 
@@ -22,7 +22,7 @@ With no NEAR keys, run `CHAIN=0 pnpm start`: everything plays the same, but noth
 
 1. **Open http://localhost:8831.** You see the EMBERFALL title over a slowly orbiting voxel ruin lit by braziers, and panels for *Your Warden*, *EMBER supply* (in existence / minted / burned / today's mint against its cap, plus the last settlements), the *Wardens' ledger*, *The Ashen Wardens* (their NEAR accounts and what they did onchain) and *Recent matches*.
 2. **Pick a difficulty, then press "Fight the Ashen Wardens".** Under the button, **Easy / Normal / Hard** (default Normal; your pick is remembered on this device, and a room's host can change it in the lobby) sets how well every AI rival plays: how fast they react, how true they aim, how often they swing (a ranked match never runs below Normal). The first time, a six-step walkthrough explains the torch and the fog, the controls, embers, the dark, winning and what goes onchain (reopen it any time with **How to play**). Then a room fills with three AI rivals, a 3-2-1 countdown plays, and one rival taunts you (with a NEAR AI key the line is marked "✓ NEAR AI TEE").
-3. **Play.** WASD/arrows move, **the mouse aims** (a small wedge on the ground shows where your swing lands), **click or Space** swings your torch, **right-click or Shift** dashes; a gamepad works too (left stick, right stick to aim, A swing, B dash); on a phone, drag on the left half and tap **Swing**/**Dash**. Hits freeze the frame for an instant, shake the camera and float a "-1"; embers drift towards you when you're close and pop "+1". You see a warm circle around you; outside it the ruins are dim grey-blue and **no Warden or ember is drawn there, because the server never sent it**. Walk over glowing embers to carry them (the gold bar top-left: the fuller it is, the further away rivals can see you) and watch rivals appear only as they enter your light. The minimap shows only the ground your torch has revealed. At 0:20 the violet wall of the dark starts shrinking (the minimap shows it); its wall pulses when it's at your back; step outside and the screen pulses violet and you lose a heart a second (it pulses red when you're down to two hearts).
+3. **Play.** WASD/arrows move, **the mouse aims** (a small wedge on the ground shows where your swing lands), **click or Space** swings your torch, **right-click or Shift** dashes; a gamepad works too (left stick, right stick to aim, A swing, B dash); on a phone, drag on the left half and tap **Swing**/**Dash**. Hits freeze the frame for an instant, shake the camera and float a "-1"; embers drift towards you when you're close and pop "+1". You see a warm circle around you; outside it the ruins are dim grey-blue and **no Warden or ember is drawn there, because the server never sent it**. Walk over glowing embers to carry them (the gold bar top-left: the fuller it is, the further away rivals can see you) and watch rivals appear only as they enter your light. The minimap shows only the ground your torch has revealed. Your heart bar (top left) reads **8 / 8 ♥** and every Warden's name tag shows 8 pips; each hit takes one. The top bar counts down to **1:10**, when the violet wall of the dark starts shrinking (the minimap shows it); by 2:55 only a small circle is left. Its wall pulses when it's at your back; step outside and the screen pulses violet and you lose a heart a second (it pulses red when you're down to three hearts).
 4. **The end.** The line above the results says your place, how long it lasted and which difficulty the Ashen Wardens played on (e.g. "Ashen Wardens on Normal"). The results table shows everyone's placement, who stood, who fell and when, embers and kills, and what EMBER each Warden earns. Within a few seconds the line changes to **"✓ Opened and settled onchain: the contract rebuilt every seal."**; open **N transactions** to see `create_match`, one `seal` per 3 s of play, the `open chunks` batches and `settle_match` on nearblocks. **opened log (JSON)** is the full proof bundle. **Watch the replay** re-runs the whole match in your browser from that log (through your torch, 1×/2×/4×, scrubbable) and shows "✓ the opened log rebuilds all N chunks of seals · ✓ it folds into the contract's chain head" (read straight from a public NEAR RPC).
 5. **Check it yourself**, with no keys and without trusting our server:
 
@@ -31,7 +31,7 @@ With no NEAR keys, run `CHAIN=0 pnpm start`: everything plays the same, but noth
    pnpm verify <matchId> --host https://<hosted-url>      # hosted
    ```
 
-   It checks the seed against the committed hash, rebuilds every seal and the chain head and compares them with the contract, replays the match tick by tick (re-making every bot decision from that bot's own fogged view), checks every 3-second state, and recomputes the burn, prize and mint. Example from a live testnet match below.
+   It prints the match's rules version (new matches are v4) and checks it against the one committed onchain at `create_match` (older matches have none stored and must be v1–v3), checks no seat ever shows more hearts than that version allows, checks the seed against the committed hash, rebuilds every seal and the chain head and compares them with the contract, replays the match tick by tick (re-making every bot decision from that bot's own fogged view), checks every 3-second state, and recomputes the burn, prize and mint. Example from a live testnet match below.
 6. **Multiplayer.** **Create a room**, send the 4-letter code or the `?room=CODE` link; friends **Join** with it (up to 6, guests welcome). The host can add Ashen Wardens; everyone presses **Ready**. **Play again** keeps the room together.
 7. **Sign in with NEAR** (top right; NEAR Connect: Meteor, Intear, HOT, MyNearWallet, …). The wallet signs "Sign in to <host>" (NEP-413). In *Your Warden*, **Mint my Warden** (free, gasless: a NEP-366 meta-transaction paid by `emberfall-relay.testnet`) gives you an NFT with a 30 EMBER purse; **Allow 5 EMBER entry fee** makes your matches **ranked**. Your card is the NFT's own onchain SVG, regenerated from its purse, record and loot; a Cinder Crown (a win), Shade Fang (a kill) or Lantern Glass (8+ embers carried out) changes your torch's flame colour in game.
 8. **Headless:** `pnpm e2e` (server at http://localhost:8831) creates a fresh faucet account, signs in, mints and approves gaslessly, plays a ranked match over the WebSocket steered only by the fogged views it receives, waits for settlement, and transfers the Warden to a second account to show the purse goes with it.
@@ -131,16 +131,27 @@ contracts/emberfall  Rust near-sdk 5.29: EMBER (NEP-141), Wardens (NEP-171), sea
 ## Tests
 
 ```bash
-pnpm --filter @emberfall/rules test   # 36: determinism, replay, tampering, combat, aim, the ember magnet, the dark, fog, bot blindness, log text, the shared seal vector, settlement, frozen v1/v2 bots (two settled hosted matches replay to their hashes), difficulty levels
-pnpm contract:test                    # 16: shared hash vector, full match, forged openings, wrong seed, caps, transfers, agents, refunds, supply invariant
+pnpm --filter @emberfall/rules test   # 43: determinism, replay, tampering, combat, aim, the ember magnet, the dark, fog, bot blindness, log text, the shared seal vector, settlement, frozen v1/v2/v3 bots (one settled match per rules version replays to its hash), difficulty levels, rules v4 (8 hearts, the later dark, levels, longer matches)
+pnpm contract:test                    # 22: shared hash vector, full match, forged openings, wrong seed, caps, transfers, agents, refunds, supply invariant, the heart cap per rules version
 pnpm typecheck
 pnpm sim 300 6                        # all-bot balance: match length, survivors, embers carried out, win rate per bot by skill (args: matches seats rules difficulty)
-pnpm sim:human 800 3 3 normal         # a reference human (250 ms reaction, imperfect aim) against 3 rivals: its win rate, place, match length, how it fell
+pnpm sim:human 800 3 4 normal         # a reference human (250 ms reaction, imperfect aim) against 3 rivals: its win rate, place, match length, how it fell (args: matches rivals rules difficulty)
+```
+
+`pnpm sim:human 800 3 <rules> <difficulty>` (800 matches per row):
+
+| | v3: human wins | v3: mean length | v4: human wins | v4: mean length (median) |
+|---|---|---|---|---|
+| Easy | 59.9% | 1:33 | 58.1% | 2:23 (2:27) |
+| Normal | 41.9% | 1:46 | 44.3% | 2:31 (2:38) |
+| Hard | 21.5% | 1:39 | 23.4% | 2:26 (2:30) |
+
+```
 ```
 
 ## Deploying
 
-- **Contract:** `pnpm contract:build`, then `near contract deploy emberfall.testnet use-file contracts/emberfall/target/near/emberfall.wasm with-init-call new json-args '{"owner":"emberfall.testnet","referee":"emberfall-ref.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-legacy-keychain send` (later redeploys: `without-init-call`).
+- **Contract:** `pnpm contract:build`, then `near contract deploy emberfall.testnet use-file contracts/emberfall/target/near/emberfall.wasm with-init-call new json-args '{"owner":"emberfall.testnet","referee":"emberfall-ref.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-legacy-keychain send` (later redeploys: `without-init-call`; the rules v4 upgrade on 12 Nov 2026 kept the state layout, so it needed no migration).
 - **Agents:** `pnpm setup:agents` (idempotent) creates the five sub-accounts with function-call keys, registers their Wardens and policies, and approves their fees.
 - **Hosting:** `scripts/deploy-azure.sh` (Azure Container Apps, resource group `emberfall`, one replica: rooms and sockets live in memory). `scripts/azure-storage.sh` mounts an Azure Files share at `/data` once, so match records survive redeploys. Keys go in as one `NEAR_KEYS` secret; nothing is in the repo.
 
