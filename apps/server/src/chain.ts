@@ -3,8 +3,9 @@ import { config, privateKey } from './config.ts';
 
 // Contract calls. Each signer's calls run one after another so nonces never collide.
 
-// several public testnet RPCs (docs.near.org/api/rpc/providers); on an error the next one is tried
-const RPCS = [config.rpcUrl, 'https://near-testnet.drpc.org', 'https://testnet-rpc.intea.rs'].filter((u, i, a) => a.indexOf(u) === i);
+// several public testnet RPCs (docs.near.org/api/rpc/providers); on an error the next one is tried.
+// fastnear goes last: it answers most keyless calls with 429 today, and each one cost a backoff before failover
+const RPCS = [config.rpcUrl, 'https://near-testnet.drpc.org', 'https://testnet-rpc.intea.rs', 'https://test.rpc.fastnear.com'].filter((u, i, a) => a.indexOf(u) === i);
 const provider = new FailoverRpcProvider(RPCS.map((url) => new JsonRpcProvider({ url })));
 const accounts = new Map<string, Account>();
 const queues = new Map<string, Promise<unknown>>();

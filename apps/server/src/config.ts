@@ -7,7 +7,7 @@ const env = (k: string, d = ''): string => process.env[k] ?? d;
 export const config = {
   port: Number(env('PORT', '8831')),
   network: env('NEAR_NETWORK', 'testnet'),
-  rpcUrl: env('NEAR_RPC_URL', 'https://test.rpc.fastnear.com'),
+  rpcUrl: env('NEAR_RPC_URL', 'https://near-testnet.drpc.org'),
   contract: env('CONTRACT_ID', 'emberfall.testnet'),
   referee: env('REFEREE_ID', 'emberfall-ref.testnet'),
   /** pays gas for players' meta-transactions (NEP-366), relayed by better-near-auth */
