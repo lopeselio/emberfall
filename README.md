@@ -1,16 +1,22 @@
 # Emberfall
 
+> Part of the **NEAR Arcade** submission for NEAR HACKATHON (https://arcade.lopeselio.online, [github.com/lopeselio/near-arcade](https://github.com/lopeselio/near-arcade)); the author's other submission is **Signalfire** ([github.com/lopeselio/signalfire](https://github.com/lopeselio/signalfire)).
+
 A torchlit battle arena on NEAR, in voxels. Every Warden carries a torch and **sees only what it lights**. Gather embers, fight with a swing and a dash (every Warden has 8 hearts), and stay inside the light while **the dark closes in**. A match lasts about two and a half minutes (at most 3:00). The last Warden standing wins; if the clock runs out, the living Warden carrying the most embers does.
 
 The fog is kept honest without a TEE: the server commits a hash of the match seed onchain before the first tick, sends each player only what their torch reveals, and **seals every player's inputs and position onchain every 3 seconds**. At the end the seed and the whole log are opened, and the contract rebuilds every seal before it burns or pays a single EMBER. `pnpm verify <matchId>` replays the match from that log.
 
-Built for NEAR HACKATHON (Nov 2026). Tracks: **Games With Real Economies**, **NFTs That Do Something**, **Memecoins With Mechanics**. Design: [DESIGN.md](DESIGN.md).
+Built for NEAR HACKATHON (Nov 2026). In the NEAR Arcade, Emberfall is claimed for the tracks **Games With Real Economies** (games), **NFTs That Do Something** (nfts) and **Memecoins With Mechanics** (memecoins). Design: [DESIGN.md](DESIGN.md).
+
+- **Play it hosted:** https://emberfall.lopeselio.online/ (also in the arcade at https://arcade.lopeselio.online/emberfall). Guests need no wallet.
 
 - Contract (testnet): [`emberfall.testnet`](https://testnet.nearblocks.io/address/emberfall.testnet): EMBER (NEP-141), Wardens (NEP-171), sealed matches.
 - Referee: [`emberfall-ref.testnet`](https://testnet.nearblocks.io/address/emberfall-ref.testnet). Gasless relayer: [`emberfall-relay.testnet`](https://testnet.nearblocks.io/address/emberfall-relay.testnet).
 - AI rivals (sub-accounts with function-call keys only): `brannoc.`, `gloam.`, `wick.`, `moth.`, `tallow.emberfall.testnet`.
 
 ## Try it (do X, see Y)
+
+Every step below works on the hosted game, https://emberfall.lopeselio.online/. To run it yourself:
 
 ```bash
 pnpm install
@@ -20,92 +26,97 @@ pnpm start            # http://localhost:8831 (server + built web app)
 
 With no NEAR keys, run `CHAIN=0 pnpm start`: everything plays the same, but nothing is written onchain (the results say "Offline mode").
 
-1. **Open http://localhost:8831.** You see the EMBERFALL title over a slowly orbiting voxel ruin lit by braziers, and panels for *Your Warden*, *EMBER supply* (in existence / minted / burned / today's mint against its cap, plus the last settlements), the *Wardens' ledger*, *The Ashen Wardens* (their NEAR accounts and what they did onchain) and *Recent matches*.
-2. **Pick a difficulty, then press "Fight the Ashen Wardens".** Under the button, **Easy / Normal / Hard** (default Normal; your pick is remembered on this device, and a room's host can change it in the lobby) sets how well every AI rival plays: how fast they react, how true they aim, how often they swing (a ranked match never runs below Normal). The first time, a six-step walkthrough explains the torch and the fog, the controls, embers, the dark, winning and what goes onchain (reopen it any time with **How to play**). Then a room fills with three AI rivals, a 3-2-1 countdown plays, and one rival taunts you (with a NEAR AI key the line is marked "✓ NEAR AI TEE").
-3. **Play.** WASD/arrows move, **the mouse aims** (a small wedge on the ground shows where your swing lands), **click or Space** swings your torch, **right-click or Shift** dashes; a gamepad works too (left stick, right stick to aim, A swing, B dash); on a phone, drag on the left half and tap **Swing**/**Dash**. Hits freeze the frame for an instant, shake the camera and float a "-1"; embers drift towards you when you're close and pop "+1". You see a warm circle around you; outside it the ruins are dim grey-blue and **no Warden or ember is drawn there, because the server never sent it**. Walk over glowing embers to carry them (the gold bar top-left: the fuller it is, the further away rivals can see you) and watch rivals appear only as they enter your light. The minimap shows only the ground your torch has revealed. Your heart bar (top left) reads **8 / 8 ♥** and every Warden's name tag shows 8 pips; each hit takes one. The top bar counts down to **1:10**, when the violet wall of the dark starts shrinking (the minimap shows it); by 2:55 only a small circle is left. Its wall pulses when it's at your back; step outside and the screen pulses violet and you lose a heart a second (it pulses red when you're down to three hearts).
-4. **The end.** The line above the results says your place, how long it lasted and which difficulty the Ashen Wardens played on (e.g. "Ashen Wardens on Normal"). The results table shows everyone's placement, who stood, who fell and when, embers and kills, and what EMBER each Warden earns. Within a few seconds the line changes to **"✓ Opened and settled onchain: the contract rebuilt every seal."**; open **N transactions** to see `create_match`, one `seal` per 3 s of play, the `open chunks` batches and `settle_match` on nearblocks. **opened log (JSON)** is the full proof bundle. **Watch the replay** re-runs the whole match in your browser from that log (through your torch, 1×/2×/4×, scrubbable) and shows "✓ the opened log rebuilds all N chunks of seals · ✓ it folds into the contract's chain head" (read straight from a public NEAR RPC).
+1. **Open https://emberfall.lopeselio.online/** (or http://localhost:8831). You see the EMBERFALL title over a slowly orbiting voxel ruin lit by braziers, and panels for *Your Warden*, *EMBER supply* (in existence / minted / burned / today's mint against its cap, plus the last settlements), the *Wardens' ledger*, *The Ashen Wardens* (their NEAR accounts and what they did onchain) and *Recent matches*.
+2. **Pick a difficulty, then press "Fight the Ashen Wardens".** Under the button, **Easy / Normal / Hard** (default Normal; your pick is remembered on this device, and a room's host can change it in the lobby) sets how well every AI rival plays: how fast they react, how true they aim, how often they swing (a ranked match never runs below Normal). The first time, a six-step walkthrough explains the torch and the fog, the controls, embers, the dark, winning and what goes onchain (reopen it any time with **How to play** in the header, a **?** button on a phone). Then a room fills with three AI rivals, a 3-2-1 countdown plays, and one rival taunts you (with a NEAR AI key the line is marked "✓ NEAR AI TEE").
+3. **Play.** WASD/arrows move, **the mouse aims** (a small wedge on the ground shows where your swing lands), **click or Space** swings your torch, **right-click or Shift** dashes; a gamepad works too (left stick, right stick to aim, A swing, B dash); on a phone, drag on the left half and tap **Swing**/**Dash**. Hits freeze the frame for an instant, shake the camera and float a "-1"; embers drift towards you when you're close and pop "+1". You see a warm circle around you; outside it the ruins are dim grey-blue and **no Warden or ember is drawn there, because the server never sent it**. Walk over glowing embers to carry them (the gold bar top-left: the fuller it is, the further away rivals can see you) and watch rivals appear only as they enter your light. The minimap shows only the ground your torch has revealed. Your heart bar (top left) reads **8 / 8 ♥** and every Warden's name tag shows 8 pips; each hit takes one. The clock in the top bar counts down from **3:00**, and the line under it counts down to the dark: at **1:50 left** (1:10 into the match) the violet wall starts shrinking (the minimap shows it), and with 0:05 left only a small circle remains. Its wall pulses when it's at your back; step outside and the screen pulses violet and you lose a heart a second (it pulses red when you're down to three hearts).
+4. **The end.** The line above the results says your place, how long it lasted and which difficulty the Ashen Wardens played on (e.g. "Ashen Wardens on Normal"). The results table shows everyone's placement, who stood, who fell and when, embers and kills, and what EMBER each Warden earns. While the referee opens the sealed log the line counts it ("Opening the sealed log onchain: 20/42 chunks opened and checked by the contract…"); after a minute or two (one `open_chunks` transaction per 10 chunks, then `settle_match`) it changes to **"✓ Opened and settled onchain: the contract rebuilt every seal."**; open **N transactions** to see `create_match`, one `seal` per 3 s of play, the `open chunks` batches and `settle_match` on nearblocks. **opened log (JSON)** is the full proof bundle. **Watch the replay** re-runs the whole match in your browser from that log (through your torch, 1×/2×/4×, scrubbable) and shows "✓ the opened log rebuilds all N chunks of seals · ✓ it folds into the contract's chain head" (read straight from a public NEAR RPC).
 5. **Check it yourself**, with no keys and without trusting our server:
 
    ```
-   pnpm verify <matchId>                                  # local server
-   pnpm verify <matchId> --host https://<hosted-url>      # hosted
+   pnpm install
+   pnpm verify m-mwdkd21i-268412 --host https://emberfall.lopeselio.online   # a hosted match (the default host)
+   pnpm verify <matchId> --host http://localhost:8831                        # a match on your local server
    ```
 
-   It prints the match's rules version (new matches are v4) and checks it against the one committed onchain at `create_match` (older matches have none stored and must be v1–v3), checks no seat ever shows more hearts than that version allows, checks the seed against the committed hash, rebuilds every seal and the chain head and compares them with the contract, replays the match tick by tick (re-making every bot decision from that bot's own fogged view), checks every 3-second state, and recomputes the burn, prize and mint. Example from a live testnet match below.
+   The results screen prints the exact command for your own match. Without `--rpc` it reads the contract through several public testnet RPCs (drpc, intea, fastnear), retrying with backoff if one rate-limits.
+
+   It prints the match's rules version (new matches are v4) and checks it against the one committed onchain at `create_match` (older matches have none stored and must be v1–v3), checks no seat ever shows more hearts than that version allows, checks the seed against the committed hash, rebuilds every seal and the chain head and compares them with the contract, replays the match tick by tick (re-making every bot decision from that bot's own fogged view), checks every 3-second state, and recomputes the burn, prize and mint. Output for that hosted match is below.
 6. **Multiplayer.** **Create a room**, send the 4-letter code or the `?room=CODE` link; friends **Join** with it (up to 6, guests welcome). The host can add Ashen Wardens; everyone presses **Ready**. **Play again** keeps the room together.
 7. **Sign in with NEAR** (top right; NEAR Connect: Meteor, Intear, HOT, MyNearWallet, …). The wallet signs "Sign in to <host>" (NEP-413). In *Your Warden*, **Mint my Warden** (free, gasless: a NEP-366 meta-transaction paid by `emberfall-relay.testnet`) gives you an NFT with a 30 EMBER purse; **Allow 5 EMBER entry fee** makes your matches **ranked**. Your card is the NFT's own onchain SVG, regenerated from its purse, record and loot; a Cinder Crown (a win), Shade Fang (a kill) or Lantern Glass (8+ embers carried out) changes your torch's flame colour in game.
-8. **Headless:** `pnpm e2e` (server at http://localhost:8831; `E2E_RPC=<url>` if the default public RPC rate-limits you) creates a fresh faucet account, signs in, mints and approves gaslessly, plays a ranked match over the WebSocket steered only by the fogged views it receives, waits for settlement, and transfers the Warden to a second account to show the purse goes with it.
+8. **Headless:** `pnpm e2e https://emberfall.lopeselio.online` (or `pnpm e2e` for http://localhost:8831; needs the `near` CLI for a faucet account; `E2E_RPC=<url>` picks another public RPC) creates a fresh faucet account, signs in, mints and approves gaslessly, plays a ranked match over the WebSocket steered only by the fogged views it receives, waits for settlement, and transfers the Warden to a second account to show the purse goes with it.
 
-### A live run (testnet, 9 Nov 2026)
+### A live run against the hosted game (testnet, 12 Nov 2026)
 
-`pnpm e2e` (the faucet was rate-limiting that day, so the test account is a funded sub-account; the taunt fell back to a stock line):
+`pnpm e2e https://emberfall.lopeselio.online` (the faucet was rate-limiting, so the test account is a funded sub-account):
 
 ```
-▶ create emberfall-e2e-mw99t1z0.testnet from the testnet faucet
-  (the faucet is rate-limited: using e2e-mw99t1z0.emberfall.testnet, funded by its parent account)
+▶ create emberfall-e2e-mwdkclwz.testnet from the testnet faucet
+  (the faucet is rate-limited: using e2e-mwdkclwz.emberfall.testnet, funded by its parent account)
   ✓ account funded
 
 ▶ sign in: Better Auth + better-near-auth (the wallet signs "Sign in to <host>")
-  ✓ session cookie set; the server sees e2e-mw99t1z0.emberfall.testnet
+  ✓ session cookie set; the server sees e2e-mwdkclwz.emberfall.testnet
 
 ▶ mint a Warden and approve the entry fee, gasless (NEP-366 meta-transactions through the relayer)
-  ✓ mint_warden AXanveGP4ugcLaFYbbMgzsPA4gsKemYEgUc5j6FBDCHJ
-  ✓ approve_fee EhRcXD4MdAtnWLrk1bUg8pT6WYjaWzgL55d14cLA8Ryy
-  ✓ warden-8 holds 30 EMBER
+  ✓ mint_warden 8xThfbaFM6Vru3kitC8buruCYSDm21efmfkHkA9JpezU
+  ✓ approve_fee AysPcERBbSFmnz7nNunfkKwctE6cVruLnbQxrNp1Pp56
+  ✓ warden-15 holds 30 EMBER
 
 ▶ play a ranked match against three Ashen Wardens over the WebSocket
-  ✓ match m-mw99tirm-1f7383: ranked=true, fee 5; seed hash 3ce05b319590b52b… committed before the first tick
-  ✓ Brannoc: “Run. It helps the hunt.”
-  ✓ over: Brannoc won; E2E Warden fell; Brannoc alive, 10 embers, 3 kills; Sister Gloam fell; Wick fell
+  ✓ match m-mwdkd21i-268412: ranked=true, fee 5; seed hash bbc15837c4416676… committed before the first tick
+  ✓ Sister Gloam: “Your light only helps me find your shadows.” (signed by NEAR AI TEE)
+  ✓ over: Sister Gloam won; E2E Warden fell, 1 kills; Wick fell; Moth fell, 1 kills; Sister Gloam alive, 26 embers, 1 kills
 
 ▶ wait for the seals to be opened and the match settled onchain
-  ✓ create_match       https://testnet.nearblocks.io/txns/DgyMKUhtdrsun1K4xaAT534BBio8RCvU6x99fvqZGMsi
-  ✓ open chunks 0–9    https://testnet.nearblocks.io/txns/AYcjkV6DepsXKfXjLFyAY3JLHMoQe2Y1hTrK3Lo9djd7
-  ✓ open chunks 10–19  https://testnet.nearblocks.io/txns/DajoJf2msXXBRFQVAYsNCf7uAhNXe6AfhxTaP9LWMZjk
-  ✓ open chunks 20–20  https://testnet.nearblocks.io/txns/B6KxzX4wPnE1ZTSHdJHS4BPmK9z9YbtfFbGL6bXebXEu
-  ✓ settle_match       https://testnet.nearblocks.io/txns/RRQxP6fWCefonQk5JUSPs9eWcLXAZBY96Yw1dmaNu85
-  ✓ 21 seal transactions (one every ~3 s of play)
-  ✓ contract: winner seat 1, burned 9, prize 11, minted [0, 10, 0, 0]
-  ✓ EMBER supply 310 → 311 (minted 338, burned 27)
-  ✓ warden-8 purse 25 EMBER; NFT reads “E2E Warden · Kindling”
+  ✓ create_match       https://testnet.nearblocks.io/txns/95fX9Av4PZ8jo4wru9bDJgUMUVkfQSX7wwEht2ZuU7p1
+  ✓ open chunks 0–9    https://testnet.nearblocks.io/txns/7PbSvmrJgWH3jnoviekF49t1vEbs13NvXxyv6B2yoVZf
+  ✓ open chunks 10–19  https://testnet.nearblocks.io/txns/GquwRUbB12n5WDP91jPSDvK13Gmca7k46VGFKphbV8qH
+  ✓ open chunks 20–29  https://testnet.nearblocks.io/txns/4rgzGZhdcQyNE5LrWCMPkHtuvxUnNv4bMC7caPdwpi7R
+  ✓ open chunks 30–39  https://testnet.nearblocks.io/txns/24ymf4FRAT6FYyEMPdp6JmF7uBsueV2XWX9eVpYt8hU3
+  ✓ open chunks 40–41  https://testnet.nearblocks.io/txns/42wh8DryQLN1qcXzU9h696HDB52qK1KKqY6YqJraiWfb
+  ✓ settle_match       https://testnet.nearblocks.io/txns/E5qu1Y9nUhGgchzywYHNfUYfNPfXV6QLLhqx2xhaABJ8
+  ✓ 42 seal transactions (one every ~3 s of play)
+  ✓ contract: winner seat 3, burned 9, prize 11, minted [0, 0, 0, 26]
+  ✓ EMBER supply 827 → 844 (minted 934, burned 90)
+  ✓ warden-15 purse 25 EMBER; NFT reads “E2E Warden · Kindling”
 
 ▶ transfer the Warden NFT: its purse, loot and record go with it
-  ✓ warden-8 now belongs to buyer.e2e-mw99t1z0.emberfall.testnet with 25 EMBER and 1 match(es) on its record
+  ✓ warden-15 now belongs to buyer.e2e-mwdkclwz.emberfall.testnet with 25 EMBER and 1 match(es) on its record
 
 all player steps passed. Check the match yourself:
-  pnpm verify m-mw99tirm-1f7383
+  pnpm verify m-mwdkd21i-268412 --host https://emberfall.lopeselio.online
 ```
 
-`pnpm verify` on a rules v4 match (12 Nov 2026, a ranked `pnpm e2e` match after the contract upgrade):
+`pnpm verify m-mwdkd21i-268412 --host https://emberfall.lopeselio.online` (run 12 Nov 2026):
 
 ```
-match m-mwdenmko-86cbe0 on emberfall.testnet: E2E Warden, Wick, Moth, Sister Gloam
+match m-mwdkd21i-268412 on emberfall.testnet: E2E Warden, Wick, Moth, Sister Gloam
 rules v4, bots on normal
 
 ✓ the contract has this match
 ✓ the rules version matches the one committed at create_match  v4
 ✓ no seat ever shows more than 8 hearts
-✓ the revealed seed matches the hash committed at create_match  fdf1dc288aa41bfc
+✓ the revealed seed matches the hash committed at create_match  bbc15837c4416676
 ✓ the match was set up from that seed (arena, embers, salts)
-✓ every opening rebuilds its seal (43 chunks × 4 seats)
-✓ the seals fold into the contract's chain head  fd3c58c472b822f5
+✓ every opening rebuilds its seal (42 chunks × 4 seats)
+✓ the seals fold into the contract's chain head  3bb9dd8d74abc600
 ✓ the contract opened every chunk and re-folded the same head
-✓ every bot input is what that bot decides from its own fogged view  1482 bot inputs
+✓ every bot input is what that bot decides from its own fogged view  1726 bot inputs
 ✓ every logged human input replays as logged
-✓ the replay passes through every sealed chunk state (43 chunks)
-✓ the replay ends where the server's match ended (tick 2521)  3303cf339d53aed6
+✓ the replay passes through every sealed chunk state (42 chunks)
+✓ the replay ends where the server's match ended (tick 2477)  c2a0b76806298423
 ✓ the final states match what the contract opened
 ✓ the contract settled it
-✓ winner: E2E Warden
+✓ winner: Sister Gloam
 ✓ pot 20 EMBER: 9 burned (3 fell), 11 to the winner
-✓ minted for embers carried out: [40, 0, 0, 0] (capped)
+✓ minted for embers carried out: [0, 0, 0, 26]
 
 1 AI line(s), 1 signed by the NEAR AI enclave (signer 0xfdbd7952498b333206f360d71d97a1e0961e8ddf)
 
 all checks passed
 ```
 
-A match from before v4 (no version stored onchain) prints `✓ the rules version matches the one committed at create_match  (none stored: a v1–v3 match)` and `✓ no seat ever shows more than 5 hearts`.
+Matches from before v4 verify too. `pnpm verify m-mw9m7kl1-79aadb --host https://emberfall.lopeselio.online` (a hosted rules v1 match from 9 Nov) prints `✓ the rules version matches the one committed at create_match  (none stored: a v1–v3 match)` and `✓ no seat ever shows more than 5 hearts`, and every check passes. `m-mwdf0yat-b30568` is another hosted v4 match that passes.
 
 ## How it works
 
@@ -151,9 +162,6 @@ pnpm sim:human 800 3 4 normal         # a reference human (250 ms reaction, impe
 | Normal | 41.9% | 1:46 | 44.3% | 2:31 (2:38) |
 | Hard | 21.5% | 1:39 | 23.4% | 2:26 (2:30) |
 
-```
-```
-
 ## Deploying
 
 - **Contract:** `pnpm contract:build`, then `near contract deploy emberfall.testnet use-file contracts/emberfall/target/near/emberfall.wasm with-init-call new json-args '{"owner":"emberfall.testnet","referee":"emberfall-ref.testnet"}' prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-legacy-keychain send` (later redeploys: `without-init-call`; the rules v4 upgrade on 12 Nov 2026 kept the state layout, so it needed no migration).
@@ -163,7 +171,7 @@ pnpm sim:human 800 3 4 normal         # a reference human (250 ms reaction, impe
 ## Lineage and disclosures
 
 - **Inspiration.** The idea of a battle royale where fog of war is the core mechanic came from [Nightfall](https://github.com/codeswithroh/nightfall) (Solana/MagicBlock). Emberfall shares **no code, assets, names, art or text** with it; its rules, world, characters and honesty scheme (seals checked by a NEAR contract) are our own.
-- **Other projects.** Independent of our other NEAR HACKATHON games (Bazaar of Liars, Realm Ledger, Parkwright, Sushi Sabotage, Fogwater): its own repo, contract, rules and server. It reuses the same stack and sign-in pattern (Better Auth + better-near-auth, a gasless relayer) and sits beside them in the NEAR Arcade.
+- **The NEAR Arcade.** Emberfall is one of the nine games in the author's NEAR Arcade submission (https://arcade.lopeselio.online, [github.com/lopeselio/near-arcade](https://github.com/lopeselio/near-arcade)). It has its own repo, contract, rules and server, and shares the arcade's sign-in pattern (Better Auth + better-near-auth, a gasless relayer). The author's other hackathon submission is [Signalfire](https://github.com/lopeselio/signalfire).
 - **AI.** NEAR AI Cloud (TEE-hosted model) only voices the rivals' taunts; each line is kept with its signature. The model never moves, targets or decides anything.
 - **Libraries:** three.js, React, better-auth and better-near-auth, near-api-js, near-kit, @noble/hashes, ws, Vite, near-sdk (Rust).
 - **Assets:** every model is procedural boxes in `apps/web/src/scene.ts`; every sound is synthesised in `apps/web/src/sound.ts`; fonts are Inter and Pixelify Sans (Google Fonts, OFL).
