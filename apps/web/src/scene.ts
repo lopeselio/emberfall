@@ -42,7 +42,7 @@ function fowMaterial<M extends THREE.Material = THREE.MeshLambertMaterial>(m: M 
       float fd = distance(vFowPos.xz, uTorch);
       float lit = 1.0 - smoothstep(uR * 0.7, uR, fd);
       float lum = dot(gl_FragColor.rgb, vec3(0.3, 0.55, 0.15));
-      vec3 unseen = vec3(lum) * vec3(0.55, 0.62, 1.0) * 0.62;
+      vec3 unseen = vec3(lum) * vec3(0.6, 0.68, 1.0) * 0.82 + vec3(0.006, 0.008, 0.02);
       gl_FragColor.rgb = mix(unseen, gl_FragColor.rgb, lit);
       float dc = distance(vFowPos.xz, uCenter);
       float dk = smoothstep(uDark - 0.3, uDark + 1.4, dc);
@@ -231,8 +231,8 @@ export class World {
     this.scene.background = new THREE.Color(C.sky);
     this.scene.fog = new THREE.FogExp2(C.sky, 0.022);
 
-    this.scene.add(new THREE.HemisphereLight(0x5a66a0, 0x0c0a16, 1.6));
-    const moon = new THREE.DirectionalLight(0xa8b8ff, 1.3);
+    this.scene.add(new THREE.HemisphereLight(0x6a78b8, 0x14101f, 2.1));
+    const moon = new THREE.DirectionalLight(0xb4c2ff, 1.75);
     moon.position.set(-14, 26, -18);
     this.scene.add(moon);
     // a fixed pool of torch lights, so shaders never recompile when torches come and go
