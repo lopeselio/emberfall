@@ -232,9 +232,11 @@ export class Room {
       txs: match.rec.txs.map((x) => ({ ...x, url: explorerTx(x.hash) })),
       progress: { chunks: match.rec.chunks.length, sealed: match.rec.sealedOnchain, opened: match.rec.openedOnchain },
     });
+    // a later progress update must not overwrite the results of a newer match ("Play again")
     const resend = (): void => {
+      if (this.match !== match) return;
       this.results = msg();
-      if (this.match === match) this.members.forEach((m) => send(m.ws, this.results));
+      this.members.forEach((m) => send(m.ws, this.results));
     };
     const { settled } = match.finish(s, resend);
     this.results = msg();
