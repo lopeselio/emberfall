@@ -144,6 +144,87 @@ contracts/emberfall  Rust near-sdk 5.29: EMBER (NEP-141), Wardens (NEP-171), sea
 - **The seed is the server's pick.** It's committed before the first tick, but it isn't unbiased randomness (no VRF).
 - **Guest seats are labels** the server speaks for; only signed-in players' Wardens are theirs onchain.
 
+## Built on NEAR
+
+What each NEAR technology does in Emberfall, and where to look. Each GIF is a short loop (12 seconds or less).
+
+| Technology | What Emberfall uses it for | Where to look |
+|---|---|---|
+| NEAR smart contract (Rust, near-sdk 5.29.1) | sealed matches: the seed hash, a seal every 3 s folded into a chain head, openings rebuilt onchain, settlement with no claims | [`contracts/emberfall`](contracts/emberfall/src/lib.rs), [`emberfall.testnet`](https://testnet.nearblocks.io/address/emberfall.testnet) |
+| NEP-141 fungible token | EMBER: entry-fee pots, 15% burned per fallen seat, the rest to the winner, 1 minted per ember carried out (capped), `offer_to_dark` | `settle_match`, `offer_to_dark`, `ft_*`, `ember_supply` in [`lib.rs`](contracts/emberfall/src/lib.rs) |
+| NEP-171 NFTs | Wardens: purse, loot and record are fields of the token; the SVG card is built from that state on every read | `mint_warden`, `nft_*`, `flame_of` in [`lib.rs`](contracts/emberfall/src/lib.rs) |
+| Function-call keys (AI agents) | the five Ashen Wardens are sub-accounts whose only key calls `approve_fee,offer_to_dark`, under a spending policy | `create_agent_account`, `register_agent` in [`lib.rs`](contracts/emberfall/src/lib.rs), [`setup-agents.ts`](apps/server/src/setup-agents.ts), [`agents.ts`](apps/server/src/agents.ts) |
+| NEAR AI Cloud | the rivals' pre-match taunts from a TEE-hosted model, each kept with the enclave's signature | [`apps/server/src/nearai.ts`](apps/server/src/nearai.ts) |
+| NEP-413 sign-in, NEP-366 meta-transactions | wallet sign-in (Better Auth + better-near-auth, NEAR Connect); `mint_warden` and `approve_fee` gasless through `emberfall-relay.testnet` | [`apps/web/src/wallet.ts`](apps/web/src/wallet.ts), [`apps/server/src/ba.ts`](apps/server/src/ba.ts) |
+| NEAR RPC (public testnet endpoints) | `pnpm verify` replays a match and checks it against the contract with no keys | [`apps/server/src/verify.ts`](apps/server/src/verify.ts) |
+
+### NEAR smart contract: the sealed match log
+
+<img src="media/stack/contract.gif" alt="Diagram: the referee emberfall-ref.testnet calls create_match on emberfall.testnet, which stores the seed hash; every 60 ticks each seat's salted inputs and state are sealed and folded into a chain head; at the end open_chunks rebuilds every seal and settle_match burns, pays and mints from the last opened chunk." width="100%">
+
+[`emberfall.testnet`](https://testnet.nearblocks.io/address/emberfall.testnet) never runs the match, but it holds the
+referee to it. `create_match` stores `sha256(seed)` and the rules version before the first tick; `seal` folds each
+3-second chunk's per-seat seals into one chain head; `open_chunks` checks the seed, rebuilds every salt and seal and
+requires the re-folded head to match; `settle_match` takes no claims and reads the outcome from the last opened chunk
+([`lib.rs`](contracts/emberfall/src/lib.rs), same bytes as [`seal.ts`](packages/rules/src/seal.ts)).
+
+### EMBER (NEP-141): burned by falls, minted by embers
+
+<img src="media/stack/ember.gif" alt="Diagram: Warden seats pay a 5 EMBER fee into the pot held by emberfall.testnet; 15% burns per fallen seat (at most 75%) and the rest goes to the winner's purse; living Wardens mint 1 EMBER per ember carried out, at most 40 a match and 2000 a day; offer_to_dark burns from your own purse; ember_supply and the NEP-141 events add up." width="100%">
+
+EMBER is a NEP-141 token with 0 decimals; purses and pots are held by the contract account, so the standard
+`ft_mint`, `ft_burn` and `ft_transfer` events add up. `settle_match` burns 15% of the pot per fallen seat (at most 75%),
+pays the rest to a Warden winner (or burns it), and mints 1 EMBER per ember each living Warden carried out, at most 40
+a match and 2000 a UTC day. `ember_supply` feeds the in-game supply panel.
+
+### Wardens (NEP-171): the token is the character
+
+<img src="media/stack/wardens.gif" alt="Diagram: a signed-in player calls mint_warden and gets a Warden NFT with a 30 EMBER purse; settle_match writes its record and awards loot that changes the torch flame; nft_token builds the SVG card from the state; nft_transfer moves the purse, loot and record to the new owner." width="100%">
+
+`mint_warden` gives each account one free Warden with a 30 EMBER purse. Purse, loot and record are fields of the
+token, so `nft_transfer` moves them all and resets the fee approval; `nft_token` builds the title, description, SVG card
+and `extra` JSON from that state on every read. A Cinder Crown, Shade Fang or Lantern Glass earned at settlement
+changes your torch's flame in game (`flame_of` in [`lib.rs`](contracts/emberfall/src/lib.rs)).
+
+### Function-call keys and NEAR AI Cloud: the Ashen Wardens
+
+<img src="media/stack/agents.gif" alt="Diagram: emberfall.testnet's create_agent_account makes moth.emberfall.testnet (and wick, gloam, brannoc, tallow) with only a function-call key for approve_fee and offer_to_dark and a 0.5 NEAR gas allowance; register_agent mints its Warden and sets a 5 EMBER per match, 100 per day policy; bot.ts plays from the same fogged view as a player; NEAR AI Cloud only writes a signed pre-match taunt." width="100%">
+
+The five rivals are sub-accounts the contract creates in `create_agent_account` with one function-call key for
+`approve_fee,offer_to_dark` and a 0.5 NEAR gas allowance; `register_agent` mints their Warden and sets a policy
+(5 EMBER a match, 100 a day) the contract checks on every spend ([`setup-agents.ts`](apps/server/src/setup-agents.ts)).
+They play through [`bot.ts`](packages/rules/src/bot.ts) from their own fogged `viewFor`. Their taunts come from
+`Qwen/Qwen3.6-35B-A3B-FP8` on NEAR AI Cloud ([`nearai.ts`](apps/server/src/nearai.ts)), kept with the enclave's
+signature; the model never moves, targets or decides anything.
+
+### NEP-413 sign-in and NEP-366: two gasless signatures
+
+<img src="media/stack/wallet.gif" alt="Diagram: your NEAR wallet signs a NEP-413 message checked by better-near-auth; delegate actions for mint_warden and approve_fee go through emberfall-relay.testnet, which pays the gas, to emberfall.testnet; an approved fee makes your matches ranked." width="100%">
+
+Sign-in is Better Auth with better-near-auth ([`ba.ts`](apps/server/src/ba.ts)): the wallet signs "Sign in to &lt;host&gt;"
+and the server checks it against a full-access key. Minting a Warden and allowing the 5 EMBER entry fee are NEP-366
+delegate actions signed in the wallet ([`wallet.ts`](apps/web/src/wallet.ts)) and relayed by `emberfall-relay.testnet`,
+which only relays to Emberfall and never attaches a deposit. A match is ranked when every Warden seat can pay.
+
+### NEAR RPC: replay a match yourself
+
+<img src="media/stack/verify.gif" alt="Diagram: pnpm verify fetches the opened match log from the game server and get_match from emberfall.testnet over public RPC, rebuilds the seals and chain head, replays the match tick by tick and recomputes the payouts; then an excerpt of the real output for hosted match m-mwdkd21i-268412." width="100%">
+
+[`verify.ts`](apps/server/src/verify.ts) reads the match from the contract through public testnet RPCs (drpc, intea,
+fastnear) and the opened log from the server, rebuilds every seal and the chain head, replays the match with
+`packages/rules` (re-making every bot decision from that bot's own view) and recomputes the burn, prize and mint. The
+last beat is an excerpt of the real run above.
+
+### The rest of the stack
+
+<img src="media/stack/stack.gif" alt="Diagram: apps/web (three.js voxel arena, React 19 and Vite 8) talks to apps/server (Node 22, a 20 Hz match with fogged views) over WebSocket, which writes to NEAR testnet; packages/rules is shared by browser and server; one image runs on Azure Container Apps with Azure Files at /data." width="100%">
+
+The web app is a three.js voxel arena with a React HUD ([`apps/web`](apps/web/src)); the Node server
+([`apps/server`](apps/server/src)) runs rooms at 20 ticks a second and sends each client only `viewFor(state, seat)`,
+writing to the chain with near-api-js and near-kit. [`packages/rules`](packages/rules/src) runs in both and in
+`pnpm verify`, pinned to the contract by a shared seal test vector. One container on Azure Container Apps
+([`deploy-azure.sh`](scripts/deploy-azure.sh)) serves both, with an Azure Files share at `/data`.
+
 ## Tests
 
 ```bash
