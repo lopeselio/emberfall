@@ -92,7 +92,7 @@ export function App() {
         <span className="grow" />
         <button className="ghost small" onClick={() => setTutorial(() => () => setTutorialDone())} title="How to play" aria-label="How to play"><span className="wide">How to play</span><span className="narrow">?</span></button>
         <button className="ghost small sound" onClick={() => { const m = !mute; setMuted(m); setMute(m); }} title="Sound (M)">{mute ? '♪ off' : '♪ on'}</button>
-        <AccountBox account={account} setAccount={setAccount} />
+        <AccountBox account={account} setAccount={setAccount} onSignOut={() => { if (net.current) { const wasMatch = screen === 'match'; leave(); if (wasMatch) setErr('You signed out, so you left the match: your Warden stops where it stood and the others play on.'); } }} />
       </header>
       {err && <div className="banner err" onClick={() => setErr('')}>{err}</div>}
       {world && screen === 'title' && <Title cfg={cfg} account={account} play={(bots, difficulty) => withTutorial(() => connect({ t: 'quick', bots, difficulty }))} create={(difficulty) => connect({ t: 'create', difficulty })} join={(code) => withTutorial(() => connect({ t: 'join', code }))} />}
@@ -106,14 +106,14 @@ export function App() {
   );
 }
 
-function AccountBox({ account, setAccount }: { account: string | null; setAccount: (a: string | null) => void }) {
+function AccountBox({ account, setAccount, onSignOut }: { account: string | null; setAccount: (a: string | null) => void; onSignOut: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   if (account) {
     return (
       <span className="acct">
         <a href={explorerAccount(account)} target="_blank" rel="noreferrer">{account.length > 22 ? `${account.slice(0, 10)}…${account.slice(-8)}` : account}</a>
-        <button className="ghost small" onClick={() => { void signOut().then(() => setAccount(null)); }}>Sign out</button>
+        <button className="ghost small" onClick={() => { onSignOut(); void signOut().then(() => setAccount(null)); }}>Sign out</button>
       </span>
     );
   }
