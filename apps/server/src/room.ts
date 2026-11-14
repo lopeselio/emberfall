@@ -67,7 +67,7 @@ export class Room {
   join(ws: WebSocket, name: string, account: string | null): void {
     if (this.phase !== 'lobby') throw new Error('that match has already started');
     if (this.members.length >= MAX_SEATS) throw new Error('the room is full');
-    if (account && this.members.some((m) => m.account === account)) throw new Error('you are already in this room');
+    if (account && this.members.some((m) => m.account === account)) throw new Error(`${account} already has a seat in this room (one seat per wallet, so wins and EMBER go to the right Warden). Join from another wallet, or sign out and join as a guest.`);
     this.members.push({ ws, name: name || 'Warden', account, ready: false, bot: null, want: {}, sent: 0 });
     this.broadcastRoom();
   }
