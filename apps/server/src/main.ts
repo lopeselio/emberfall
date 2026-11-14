@@ -137,7 +137,8 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
         case 'ready': room?.setReady(ws, !!m.ready); break;
         case 'again': room?.again(ws); break;
         case 'in': room?.input(ws, { mx: m.mx as number, mz: m.mz as number, ax: m.ax as number, az: m.az as number, swing: !!m.swing, dash: !!m.dash }); break;
-        case 'leave': room?.leave(ws); room = null; break;
+        // `forfeit`: the player chose to go (Leave, sign-out); their Warden stops instead of being taken over
+        case 'leave': room?.leave(ws, m.forfeit !== false); room = null; break;
       }
     } catch (e) {
       reply({ t: 'error', msg: (e as Error).message });

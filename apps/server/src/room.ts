@@ -118,15 +118,22 @@ export class Room {
     this.broadcastRoom();
   }
 
-  leave(ws: WebSocket): void {
+  /**
+   * A player leaves. A dropped connection hands the Warden to an Ashen mind (so a network blip
+   * doesn't hand rivals a free kill); a deliberate leave or sign-out (`forfeit`) stops the Warden
+   * where it stands instead: it gets no more input and plays no further part. Both are ordinary
+   * inputs in the sealed log, so the match still replays exactly under the same rules.
+   */
+  leave(ws: WebSocket, forfeit = false): void {
     const i = this.seatOf(ws);
     if (i < 0) return;
     const m = this.members[i];
     if (this.phase === 'lobby') this.members.splice(i, 1);
     else {
       m.ws = null;
-      // mid-match: an Ashen mind takes the torch so the match stays fair for everyone else
-      if (this.phase === 'playing' && this.state?.wardens[i].alive) m.want = { ...m.want, takeover: true };
+      if (this.phase === 'playing' && this.state?.wardens[i].alive) {
+        m.want = forfeit ? { mx: 0, mz: 0, ax: m.want.ax, az: m.want.az } : { ...m.want, takeover: true };
+      }
     }
     if (!this.members.some((x) => x.ws)) {
       // nobody left to watch: finish quietly if playing (bots carry on), else close
