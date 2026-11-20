@@ -5,7 +5,7 @@ import { Net, getDifficulty, getName, setDifficulty, setName, setTutorialDone, t
 import { World } from './scene.ts';
 import { isMuted, setMuted, sfx, unlockAudio } from './sound.ts';
 import { Tutorial } from './Tutorial.tsx';
-import { call, explainSignIn, setContract, signIn, signOut } from './wallet.ts';
+import { call, dismissed, explainSignIn, setContract, signIn, signOut } from './wallet.ts';
 
 // The shell: one three.js arena behind everything; title, room, match and results on top.
 
@@ -119,7 +119,7 @@ function AccountBox({ account, setAccount, onSignOut }: { account: string | null
   }
   const go = (): void => {
     setBusy(true); setErr('');
-    signIn().then(setAccount).catch((e: Error) => setErr(e.message || 'unknown error')).finally(() => setBusy(false));
+    signIn().then(setAccount).catch((e: Error) => { if (!dismissed(e)) setErr(e.message || 'unknown error'); }).finally(() => setBusy(false));
   };
   const why = err ? explainSignIn(err) : null;
   return (
